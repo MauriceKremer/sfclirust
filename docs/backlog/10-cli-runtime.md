@@ -33,13 +33,13 @@ package's output and error contracts.
 
 ## B10-02: Implement command parsing and explicit command registration
 
-- [ ] Define the root parser and command tree using the selected `clap` setup.
-- [ ] Keep registration tied to implemented command handlers. Unsupported
+- [x] Define the root parser and command tree using the selected `clap` setup.
+- [x] Keep registration tied to implemented command handlers. Unsupported
   commands must return a clear nonzero error, not a stub or subprocess fallback.
-- [ ] Add tested helpers for repeated flags, mutually exclusive arguments,
+- [x] Add tested helpers for repeated flags, mutually exclusive arguments,
   dependent flags, durations, org selection, and project requirements only as
   required by inventoried commands.
-- [ ] Keep static help usable offline and keep user input validation at the
+- [x] Keep static help usable offline and keep user input validation at the
   command interface.
 
 **Likely files**

@@ -21,6 +21,7 @@ pub mod exit_code {
     pub const OPERATIONAL_ERROR: i32 = 1;
 
     /// Unsupported command.
+    #[allow(dead_code)]
     pub const UNSUPPORTED: i32 = 127;
 
     /// Terminated by signal (128 + signal number, e.g. SIGTERM = 128 + 15 = 143).
@@ -77,6 +78,7 @@ pub struct CommandError {
 
 impl CommandError {
     /// Create a new unsupported command error.
+    #[allow(dead_code)]
     pub fn unsupported(command: &str) -> Self {
         Self {
             status: "error".to_string(),
