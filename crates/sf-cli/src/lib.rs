@@ -4,5 +4,8 @@
 
 pub mod cli;
 pub mod commands;
+pub mod diagnostics;
 pub mod error;
 pub mod output;
+pub mod terminal;
+pub mod tracing_config;

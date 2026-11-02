@@ -1,7 +1,10 @@
 mod cli;
 mod commands;
+mod diagnostics;
 mod error;
 mod output;
+mod terminal;
+mod tracing_config;
 
 use clap::{CommandFactory, Parser};
 use cli::Cli;
@@ -65,3 +68,4 @@ async fn run() -> CommandOutcome {
         }
     }
 }
+

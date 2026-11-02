@@ -4,17 +4,21 @@
 //! from diagnostics/errors to stderr.
 
 use crate::error::CommandOutcome;
+use crate::terminal::BrokenPipeHandler;
 use std::io;
 
 /// Renders a command outcome to stdout/stderr based on the requested format.
 ///
-/// - If `SF_CONTENT_TYPE=JSON`, the error envelope is written to stdout as JSON.
+/// - If `SF_CONTENT_TYPE=JSON`, the entire result/error envelope is written to stdout as JSON.
 /// - Otherwise, human-readable output goes to stdout.
 /// - Diagnostics and non-JSON errors go to stderr.
+/// - Always ensures exactly one JSON document (when JSON mode is active).
 pub fn render_outcome(outcome: &CommandOutcome) -> io::Result<i32> {
     let json_mode = std::env::var("SF_CONTENT_TYPE")
         .map(|v| v.to_uppercase() == "JSON")
         .unwrap_or(false);
+
+    let handler = BrokenPipeHandler::new();
 
     match outcome {
         CommandOutcome::Success {
@@ -25,11 +29,15 @@ pub fn render_outcome(outcome: &CommandOutcome) -> io::Result<i32> {
                 if let Some(result) = result {
                     let json_str = serde_json::to_string(result)
                         .unwrap_or_else(|_| r#"{"status":"success"}"#.to_string());
+                    // Ensure exactly one JSON document on stdout
                     println!("{}", json_str);
+                    handler.check_and_exit_if_broken();
                 }
             } else {
+                // Human-readable output to stdout
                 if let Some(result) = result {
-                    println!("{}", result);
+                    render_human_readable(result)?;
+                    handler.check_and_exit_if_broken();
                 }
             }
             Ok(0)
@@ -37,7 +45,7 @@ pub fn render_outcome(outcome: &CommandOutcome) -> io::Result<i32> {
 
         CommandOutcome::Failure(err) => {
             if json_mode {
-                // JSON errors go to stdout with a nonzero exit code
+                // JSON errors go to stdout as a single JSON document with a nonzero exit code
                 let json = serde_json::to_string(err).unwrap_or_else(|_| {
                     serde_json::json!({
                         "status": "error",
@@ -47,16 +55,79 @@ pub fn render_outcome(outcome: &CommandOutcome) -> io::Result<i32> {
                     .to_string()
                 });
                 println!("{}", json);
+                handler.check_and_exit_if_broken();
             } else {
                 // Human-readable errors go to stderr
-                eprintln!("error: {}", err.message);
-                if let Some(context) = &err.context {
-                    eprintln!("  {}", context);
-                }
+                render_human_error(err)?;
+                handler.check_and_exit_if_broken();
             }
             Ok(err.exit_code)
         }
     }
+}
+
+/// Render a JSON value as human-readable output to stdout.
+///
+/// Formats the JSON in a readable way without leaking internal structure.
+fn render_human_readable(value: &serde_json::Value) -> io::Result<()> {
+    match value {
+        serde_json::Value::Object(obj) => {
+            // For objects, pretty-print with nice formatting
+            for (key, val) in obj {
+                match val {
+                    serde_json::Value::String(s) => {
+                        println!("{}: {}", key, s);
+                    }
+                    serde_json::Value::Number(n) => {
+                        println!("{}: {}", key, n);
+                    }
+                    serde_json::Value::Bool(b) => {
+                        println!("{}: {}", key, b);
+                    }
+                    serde_json::Value::Array(arr) => {
+                        println!("{}:", key);
+                        for item in arr {
+                            println!("  - {}", item);
+                        }
+                    }
+                    serde_json::Value::Object(_) | serde_json::Value::Null => {
+                        println!("{}: {}", key, serde_json::to_string_pretty(val).unwrap_or_default());
+                    }
+                }
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for item in arr {
+                println!("{}", item);
+            }
+        }
+        serde_json::Value::String(s) => {
+            println!("{}", s);
+        }
+        _ => {
+            // For other types, just pretty-print
+            println!(
+                "{}",
+                serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string())
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Render a command error as human-readable output to stderr.
+fn render_human_error(err: &crate::error::CommandError) -> io::Result<()> {
+    eprintln!("error: {}", err.message);
+    if let Some(context) = &err.context {
+        eprintln!("  {}", context);
+    }
+    if !err.warnings.is_empty() {
+        eprintln!("\nwarnings:");
+        for warning in &err.warnings {
+            eprintln!("  - {}", warning);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -93,5 +164,30 @@ mod tests {
 
         let exit_code = render_outcome(&outcome).expect("render succeeds");
         assert_eq!(exit_code, 1);
+    }
+
+    #[test]
+    fn render_human_readable_object() {
+        let value = json!({
+            "name": "Alice",
+            "age": 30,
+            "active": true
+        });
+        let result = render_human_readable(&value);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn render_human_readable_array() {
+        let value = json!(["item1", "item2", "item3"]);
+        let result = render_human_readable(&value);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn render_human_readable_string() {
+        let value = json!("test string");
+        let result = render_human_readable(&value);
+        assert!(result.is_ok());
     }
 }

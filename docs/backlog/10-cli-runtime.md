@@ -57,27 +57,35 @@ package's output and error contracts.
 
 ## B10-03: Add terminal output, JSON, and tracing adapters
 
-- [ ] Implement JSON rendering as a single stdout document when JSON mode is
+- [x] Implement JSON rendering as a single stdout document when JSON mode is
   active; direct diagnostics/progress to stderr.
-- [ ] Implement human-readable output separately from wire/API models.
-- [ ] Add structured tracing with redaction at fields' ownership points.
-- [ ] Handle TTY detection, color/NO_COLOR policy, broken pipes, and non-TTY
+- [x] Implement human-readable output separately from wire/API models.
+- [x] Add structured tracing with redaction at fields' ownership points.
+- [x] Handle TTY detection, color/NO_COLOR policy, broken pipes, and non-TTY
   prompts without hanging.
 
 **Likely files**
 
-- `crates/sf-cli/src/output.rs`
-- `crates/sf-cli/src/terminal.rs`
-- `crates/sf-cli/src/diagnostics.rs`
-- `crates/sf-cli/tests/output_contract.rs`
+- `crates/sf-cli/src/output.rs` ✅
+- `crates/sf-cli/src/terminal.rs` ✅
+- `crates/sf-cli/src/diagnostics.rs` ✅
+- `crates/sf-cli/tests/output_contract.rs` ✅
+- `crates/sf-cli/tests/terminal_output.rs` ✅
+- `crates/sf-cli/tests/diagnostics.rs` ✅
 
 **Acceptance**
 
-- JSON output parses as exactly one document; no ANSI/progress/log text leaks to
+- [x] JSON output parses as exactly one document; no ANSI/progress/log text leaks to
   stdout.
-- Human output is tested for useful semantics without over-promising exact
+- [x] Human output is tested for useful semantics without over-promising exact
   wording.
-- A synthetic secret does not appear in logs, errors, or diagnostics.
+- [x] A synthetic secret does not appear in logs, errors, or diagnostics.
+
+**Implementation Details**
+
+See [B10-03-IMPLEMENTATION.md](./B10-03-IMPLEMENTATION.md) for complete details,
+test coverage, and architecture notes.
+
 
 ## B10-04: Add graceful process lifecycle
 
