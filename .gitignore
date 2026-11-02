@@ -1,0 +1,36 @@
+# Generated builds and artifacts
+/target/
+*.rlib
+*.rmeta
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Coverage and testing
+*.profraw
+*.profdata
+/coverage/
+tarpaulin-report.html
+
+# Temporary test output and state
+/tmp/
+*.tmp
+.sf-rust/
+SF_RUST_STATE_DIR
+
+# IDE and editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.env
+.env.local
+
+# Credentials and sensitive data (for clarity; should never reach git)
+.sfdx/
+.sf/
+*.pem
+*.key
