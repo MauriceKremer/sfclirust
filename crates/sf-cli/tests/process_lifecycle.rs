@@ -170,7 +170,9 @@ fn multiple_invocations_succeed() {
         let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
         cmd.arg("--version");
 
-        let output = cmd.output().expect(&format!("invocation {} runs", i));
+        let output = cmd
+            .output()
+            .unwrap_or_else(|_| panic!("invocation {} runs", i));
         assert!(output.status.success(), "invocation {} should succeed", i);
     }
 }

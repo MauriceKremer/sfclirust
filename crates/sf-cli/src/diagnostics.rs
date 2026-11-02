@@ -2,6 +2,12 @@
 //!
 //! Provides utilities for logging warnings, debug information, and progress
 //! to stderr without interfering with stdout (which carries JSON/result data).
+//!
+//! This module is part of the foundational infrastructure (B10-03) and will be
+//! used by commands in future backlog items. It is intentionally public but
+//! currently unused.
+
+#![allow(dead_code)]
 
 use std::fmt;
 use std::io;

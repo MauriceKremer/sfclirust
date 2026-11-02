@@ -11,7 +11,7 @@ use clap::{CommandFactory, Parser};
 use cli::Cli;
 use error::{CommandError, CommandOutcome, exit_code};
 use output::render_outcome;
-use runtime::{flush_output, shutdown};
+use runtime::flush_output;
 use std::process;
 
 #[allow(dead_code)]
@@ -22,8 +22,6 @@ async fn main() {
     // Set up signal handling to request graceful shutdown
     #[cfg(unix)]
     {
-        use std::sync::atomic::Ordering;
-
         let shutdown_handler = || {
             runtime::request_shutdown();
         };

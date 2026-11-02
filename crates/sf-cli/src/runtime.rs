@@ -3,6 +3,12 @@
 //! Handles process termination signals, task cleanup, and ensures proper
 //! output flushing before exit. Separates signal handling from operation
 //! cancellation and rollback concerns.
+//!
+//! This module is part of the foundational infrastructure (B10-04) and will be
+//! used by commands in future backlog items. It is intentionally public but
+//! currently unused.
+
+#![allow(dead_code)]
 
 use std::io;
 use std::sync::Arc;

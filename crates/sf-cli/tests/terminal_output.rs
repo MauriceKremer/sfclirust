@@ -7,10 +7,9 @@
 //! - Respects NO_COLOR environment variable
 //! - Prevents broken pipe errors from crashing the process
 
-#![allow(clippy::expect_used)]
+#![allow(clippy::expect_used, unused_imports)]
 
 use assert_cmd::Command;
-use predicates::prelude::*;
 
 #[test]
 fn json_mode_single_document() {
@@ -134,7 +133,7 @@ fn stdout_and_stderr_separate() {
 
     let output = cmd.output().expect("command runs");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let _stderr = String::from_utf8_lossy(&output.stderr);
 
     // Help goes to stdout
     assert!(!stdout.is_empty());

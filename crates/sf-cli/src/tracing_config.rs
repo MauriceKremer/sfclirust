@@ -2,6 +2,12 @@
 //!
 //! Provides a wrapper around `tracing` crate with field-level redaction
 //! to prevent accidental exposure of credentials and sensitive data.
+//!
+//! This module is part of the foundational infrastructure (B10-03) and will be
+//! used by commands in future backlog items. It is intentionally public but
+//! currently unused.
+
+#![allow(dead_code)]
 
 use tracing::Level;
 use tracing_subscriber::fmt::{Subscriber as FmtSubscriber, format::FmtSpan};

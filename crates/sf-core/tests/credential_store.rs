@@ -154,8 +154,6 @@ fn in_memory_store_namespacing_same_alias_different_orgs() {
 fn in_memory_store_update_overwrites() {
     let store = InMemoryStore::new();
 
-    let key = CredentialKey::new("org123", "my-org");
-
     // Store initial credential
     let secret1 = Secret::new("token-v1");
     let cred1 = Credential::new(

@@ -2,8 +2,12 @@
 //!
 //! Handles TTY detection, color support, broken-pipe errors, and non-TTY
 //! prompt behavior without hanging.
+//!
+//! This module is part of the foundational infrastructure (B10-03) and will be
+//! used by commands in future backlog items. It is intentionally public but
+//! currently unused.
 
-#![allow(clippy::expect_used, clippy::unwrap_used)]
+#![allow(clippy::expect_used, clippy::unwrap_used, dead_code)]
 
 use std::io::{self, IsTerminal};
 use std::sync::OnceLock;
