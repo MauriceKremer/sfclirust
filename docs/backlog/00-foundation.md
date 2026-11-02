@@ -131,11 +131,11 @@ with enforceable checks, not just a collection of crates.
 
 ## B00-04: Add a real, minimal executable
 
-- [ ] Add the `sf-rust` binary entry point and library roots for `sf-core` and
+- [x] Add the `sf-rust` binary entry point and library roots for `sf-core` and
   `sf-api`. Keep crate roots small; do not create speculative module trees.
-- [ ] Implement `--help` and `--version` without reading Salesforce config,
+- [x] Implement `--help` and `--version` without reading Salesforce config,
   accessing the credential store, or making network requests.
-- [ ] Add a process-level smoke test that asserts binary name, exit code, and
+- [x] Add a process-level smoke test that asserts binary name, exit code, and
   stdout/stderr behavior.
 
 **Initial files**
