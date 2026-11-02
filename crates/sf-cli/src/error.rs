@@ -11,6 +11,7 @@ use thiserror::Error;
 /// Exit codes matching upstream oclif behavior.
 pub mod exit_code {
     /// Success exit code.
+    #[allow(dead_code)]
     pub const SUCCESS: i32 = 0;
 
     /// Generic parse/validation error (clap-reported invalid arguments).
@@ -23,6 +24,7 @@ pub mod exit_code {
     pub const UNSUPPORTED: i32 = 127;
 
     /// Terminated by signal (128 + signal number, e.g. SIGTERM = 128 + 15 = 143).
+    #[allow(dead_code)]
     pub fn signal(sig: i32) -> i32 {
         128 + sig
     }
@@ -36,6 +38,7 @@ pub enum CommandOutcome {
     /// Command succeeded with optional JSON result and warnings.
     Success {
         result: Option<serde_json::Value>,
+        #[allow(dead_code)]
         warnings: Vec<String>,
     },
 
@@ -98,6 +101,7 @@ impl CommandError {
     }
 
     /// Create an operational error (runtime failure).
+    #[allow(dead_code)]
     pub fn operational(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             status: "error".to_string(),
@@ -110,18 +114,21 @@ impl CommandError {
     }
 
     /// Set optional context (e.g., suggestion or link).
+    #[allow(dead_code)]
     pub fn with_context(mut self, context: String) -> Self {
         self.context = Some(context);
         self
     }
 
     /// Add a warning that occurred before this error.
+    #[allow(dead_code)]
     pub fn with_warning(mut self, warning: String) -> Self {
         self.warnings.push(warning);
         self
     }
 
     /// Redact suspected secrets from this error (simple *** replacement).
+    #[allow(dead_code)]
     pub fn redact_secrets(mut self) -> Self {
         self.message = redact_secrets(&self.message);
         self.context = self.context.map(|c| redact_secrets(&c));
@@ -140,6 +147,7 @@ impl fmt::Display for CommandError {
 ///
 /// This is a basic approach; a more sophisticated implementation would use
 /// field-level annotations (deferred to a later phase).
+#[allow(dead_code)]
 fn redact_secrets(s: &str) -> String {
     let mut result = s.to_string();
 
@@ -156,6 +164,7 @@ fn redact_secrets(s: &str) -> String {
 }
 
 /// Helper to redact patterns using simple string replacement.
+#[allow(dead_code)]
 fn redact_pattern(s: &str, _pattern: &str, _replacement: &str) -> String {
     // For now, use simple substring matching for known patterns
     // A production version would use regex or a more sophisticated approach
