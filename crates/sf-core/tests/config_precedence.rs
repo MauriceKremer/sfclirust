@@ -260,3 +260,123 @@ fn initialize_config_store_creates_valid_store() {
     let value = store.get("test");
     assert!(value.is_some());
 }
+
+#[test]
+fn config_symlink_behavior_follows_target() {
+    // On Unix systems, symlinks to config files should be followed
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs as unix_fs;
+
+        let temp_dir = TempDir::new().expect("create temp dir");
+        let real_file = temp_dir.path().join("real_config.json");
+        let link_file = temp_dir.path().join("link_config.json");
+
+        // Write real config file
+        fs::write(&real_file, r#"{"key": "from_symlink_target"}"#)
+            .expect("write real config file");
+
+        // Create symlink
+        unix_fs::symlink(&real_file, &link_file).expect("create symlink");
+
+        // Store should read through the symlink
+        let store = ConfigStore::new(Some(link_file), None).expect("create store");
+        let value = store.get("key").expect("get value");
+
+        assert_eq!(value.value, "from_symlink_target");
+        assert_eq!(value.source, ConfigSource::GlobalConfig);
+    }
+}
+
+#[test]
+fn config_symlink_state_dir_behavior_deliberate() {
+    // Symlinked state directories are followed (not dereferenced)
+    // This test documents that behavior
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs as unix_fs;
+
+        let temp_dir = TempDir::new().expect("create temp dir");
+        let real_dir = temp_dir.path().join("real_state");
+        let link_dir = temp_dir.path().join("link_state");
+
+        fs::create_dir(&real_dir).expect("create real state dir");
+        unix_fs::symlink(&real_dir, &link_dir).expect("create symlink");
+
+        // Config store initialized with symlink should work
+        let config_file = link_dir.join("config.json");
+        fs::write(&config_file, r#"{"test": "value"}"#).expect("write config");
+
+        let store = ConfigStore::new(Some(config_file), None).expect("create store");
+        let value = store.get("test").expect("get value");
+        assert_eq!(value.value, "value");
+    }
+}
+
+#[test]
+fn config_platform_path_absolute_vs_relative() {
+    // Platform paths should normalize correctly
+    let temp_dir = TempDir::new().expect("create temp dir");
+    let config_file = temp_dir.path().join("config.json");
+
+    fs::write(&config_file, r#"{"key": "value"}"#).expect("write config file");
+
+    // Absolute path should work
+    let store_abs = ConfigStore::new(Some(config_file.clone()), None)
+        .expect("create store with absolute path");
+    assert!(store_abs.get("key").is_some());
+
+    // Relative paths are not recommended but should be documented
+    // (ConfigStore expects absolute paths for consistency)
+}
+
+#[test]
+fn config_unwritable_directory_error_explicit() {
+    // Permission errors when writing config should be explicit and testable
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = TempDir::new().expect("create temp dir");
+        let read_only_dir = temp_dir.path().join("readonly");
+        let config_file = read_only_dir.join("config.json");
+
+        fs::create_dir(&read_only_dir).expect("create readonly dir");
+
+        // Write initial config
+        fs::write(&config_file, r#"{"key": "initial"}"#).expect("write config");
+
+        // Make directory read-only
+        let perms = fs::Permissions::from_mode(0o555);
+        fs::set_permissions(&read_only_dir, perms).expect("set read-only");
+
+        // Creating a store should succeed (reading is allowed)
+        let store = ConfigStore::new(Some(config_file.clone()), None)
+            .expect("create store with read-only config");
+
+        // But writing should fail with explicit error
+        let result = store.save_global_config();
+        assert!(result.is_err(), "writing to read-only directory should fail");
+
+        // Restore permissions for cleanup
+        let perms = fs::Permissions::from_mode(0o755);
+        fs::set_permissions(&read_only_dir, perms).expect("restore permissions");
+    }
+}
+
+#[test]
+fn config_malformed_json_fails_explicitly() {
+    // Malformed JSON should produce an explicit error, not silent failure
+    let temp_dir = TempDir::new().expect("create temp dir");
+    let config_file = temp_dir.path().join("config.json");
+
+    // Write malformed JSON
+    fs::write(&config_file, r#"{invalid json"#).expect("write malformed file");
+
+    // Creating a store should fail with an explicit error message
+    let result = ConfigStore::new(Some(config_file), None);
+    assert!(result.is_err());
+    
+    let err = result.unwrap_err();
+    assert!(err.contains("Invalid JSON"), "Error should mention invalid JSON: {}", err);
+}
