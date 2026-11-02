@@ -103,15 +103,15 @@ with enforceable checks, not just a collection of crates.
 
 ## B00-03: Enforce formatting, lint, test, and dependency checks
 
-- [ ] Add the workspace lint declarations and member inheritance from the
+- [x] Add the workspace lint declarations and member inheritance from the
   [development guide](../development-setup.md). Keep exceptions local and
   documented.
-- [ ] Add required CI jobs for formatting, all-target Clippy with warnings
+- [x] Add required CI jobs for formatting, all-target Clippy with warnings
   denied, tests/doctests, dependency audit/license policy, and supported-host
   checks. Pin actions/tools and use `--locked`.
 - [ ] Configure repository rules so required CI jobs block merge. A workflow
   that can be skipped or fail without blocking is not enforcement.
-- [ ] Start with OS-native CI runners. Add cross-compilation only as a
+- [x] Start with OS-native CI runners. Add cross-compilation only as a
   supplemental check, not a replacement for native execution tests.
 
 **Initial files**

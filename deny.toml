@@ -1,0 +1,11 @@
+# Dependency policy for sf-rust workspace
+# See: https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+ignore = []
+
+[licenses]
+
+[bans]
+
+[sources]
