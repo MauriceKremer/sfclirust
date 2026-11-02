@@ -144,7 +144,10 @@ impl DiagnosticCollector {
 
     /// Get the count of diagnostics at a specific severity level.
     pub fn count_by_severity(&self, severity: Severity) -> usize {
-        self.diagnostics.iter().filter(|d| d.severity == severity).count()
+        self.diagnostics
+            .iter()
+            .filter(|d| d.severity == severity)
+            .count()
     }
 
     /// Get all warnings.
@@ -175,7 +178,9 @@ impl DiagnosticCollector {
 
     /// Check if there are any diagnostics at Error level or above.
     pub fn has_errors(&self) -> bool {
-        self.diagnostics.iter().any(|d| d.severity == Severity::Error)
+        self.diagnostics
+            .iter()
+            .any(|d| d.severity == Severity::Error)
     }
 }
 
@@ -199,10 +204,13 @@ mod tests {
 
     #[test]
     fn diagnostic_with_context() {
-        let diag = Diagnostic::error("failed to connect")
-            .with_context("Check your network connection");
+        let diag =
+            Diagnostic::error("failed to connect").with_context("Check your network connection");
         assert_eq!(diag.severity, Severity::Error);
-        assert_eq!(diag.context, Some("Check your network connection".to_string()));
+        assert_eq!(
+            diag.context,
+            Some("Check your network connection".to_string())
+        );
     }
 
     #[test]

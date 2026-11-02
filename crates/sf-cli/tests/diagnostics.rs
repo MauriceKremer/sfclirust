@@ -140,4 +140,3 @@ mod diagnostic_tests {
         assert!(collector.has_errors());
     }
 }
-

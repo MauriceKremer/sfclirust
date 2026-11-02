@@ -4,9 +4,9 @@
 //! output flushing before exit. Separates signal handling from operation
 //! cancellation and rollback concerns.
 
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::io;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 /// Unique identifier for long-running operations.
 ///
@@ -162,11 +162,7 @@ fn generate_operation_id() -> OperationId {
 
     // Format: timestamp-nanos-random
     // This provides reasonable uniqueness without requiring complex UUID generation
-    format!(
-        "{}-{:x}",
-        now.as_nanos(),
-        std::process::id() as u64
-    )
+    format!("{}-{:x}", now.as_nanos(), std::process::id() as u64)
 }
 
 /// Signal-safe shutdown handler for integration with signal handling.

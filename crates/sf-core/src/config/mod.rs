@@ -6,8 +6,11 @@
 pub mod paths;
 pub mod store;
 
+pub use paths::{
+    ensure_dir_exists, find_project_state_dir, get_global_state_dir, global_config_path,
+    project_config_path,
+};
 pub use store::{ConfigSource, ConfigStore, ConfigValue};
-pub use paths::{ensure_dir_exists, find_project_state_dir, get_global_state_dir, global_config_path, project_config_path};
 
 /// Initialize a configuration store with paths resolved.
 ///

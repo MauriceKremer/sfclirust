@@ -4,7 +4,7 @@
 //! to prevent accidental exposure of credentials and sensitive data.
 
 use tracing::Level;
-use tracing_subscriber::fmt::{format::FmtSpan, Subscriber as FmtSubscriber};
+use tracing_subscriber::fmt::{Subscriber as FmtSubscriber, format::FmtSpan};
 
 /// Maximum length of a log message before truncation.
 const MAX_LOG_LENGTH: usize = 10000;

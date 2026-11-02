@@ -3,9 +3,11 @@
 //! Handles TTY detection, color support, broken-pipe errors, and non-TTY
 //! prompt behavior without hanging.
 
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use std::io::{self, IsTerminal};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Global flag for NO_COLOR environment variable support.
 static NO_COLOR: OnceLock<bool> = OnceLock::new();
@@ -200,4 +202,3 @@ mod tests {
         }
     }
 }
-

@@ -3,7 +3,7 @@
 //! Tests verify that configuration loading respects precedence, handles
 //! malformed files gracefully, and doesn't touch system state.
 
-#![allow(clippy::expect_used)]
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use sf_core::config::{ConfigSource, ConfigStore, initialize_config_store};
 use std::fs;
@@ -15,7 +15,7 @@ fn config_precedence_environment_over_file() {
     // Note: Environment variable testing requires setting vars before process start.
     // This unit test verifies the store prioritizes correctly.
     // Integration tests in test environments should set SF_* before running.
-    
+
     let temp_dir = TempDir::new().expect("create temp dir");
     let config_file = temp_dir.path().join("config.json");
 
@@ -71,7 +71,8 @@ fn config_atomic_write_succeeds() {
     let config_file = temp_dir.path().join("config.json");
 
     let store = ConfigStore::new(Some(config_file.clone()), None).expect("create store");
-    store.set_global_config("test_key".to_string(), "test_value".to_string())
+    store
+        .set_global_config("test_key".to_string(), "test_value".to_string())
         .expect("set config");
 
     let result = store.save_global_config();
@@ -93,11 +94,15 @@ fn config_project_file_preserved() {
     let config_file = temp_dir.path().join("config.json");
 
     // Write initial config with unknown field
-    fs::write(&config_file, r#"{"known_field": "value1", "unknown_field": "should_preserve"}"#)
-        .expect("write config file");
+    fs::write(
+        &config_file,
+        r#"{"known_field": "value1", "unknown_field": "should_preserve"}"#,
+    )
+    .expect("write config file");
 
     let store = ConfigStore::new(None, Some(config_file.clone())).expect("create store");
-    store.set_project_config("known_field".to_string(), "updated_value".to_string())
+    store
+        .set_project_config("known_field".to_string(), "updated_value".to_string())
         .expect("set config");
 
     store.save_project_config().expect("save config");
@@ -107,8 +112,14 @@ fn config_project_file_preserved() {
     let json: serde_json::Value = serde_json::from_str(&content).expect("parse json");
 
     let obj = json.as_object().expect("get object");
-    assert_eq!(obj.get("known_field").and_then(|v| v.as_str()), Some("updated_value"));
-    assert_eq!(obj.get("unknown_field").and_then(|v| v.as_str()), Some("should_preserve"));
+    assert_eq!(
+        obj.get("known_field").and_then(|v| v.as_str()),
+        Some("updated_value")
+    );
+    assert_eq!(
+        obj.get("unknown_field").and_then(|v| v.as_str()),
+        Some("should_preserve")
+    );
 }
 
 #[test]
@@ -164,7 +175,7 @@ fn config_env_precedence_over_global_file() {
     // Environment should override global config file
     // Note: Environment testing requires setting vars before process start
     // (env::set_var is unsafe in this codebase)
-    
+
     let temp_dir = TempDir::new().expect("create temp dir");
     let global_file = temp_dir.path().join("global.json");
 
@@ -187,8 +198,7 @@ fn config_project_file_precedence() {
     fs::write(&global_file, r#"{"key": "global_value"}"#).expect("write global");
     fs::write(&project_file, r#"{"key": "project_value"}"#).expect("write project");
 
-    let store = ConfigStore::new(Some(global_file), Some(project_file))
-        .expect("create store");
+    let store = ConfigStore::new(Some(global_file), Some(project_file)).expect("create store");
 
     let value = store.get("key").expect("get value");
     assert_eq!(value.value, "project_value");
@@ -209,8 +219,11 @@ fn config_numeric_and_boolean_values() {
     let temp_dir = TempDir::new().expect("create temp dir");
     let config_file = temp_dir.path().join("config.json");
 
-    fs::write(&config_file, r#"{"number": 42, "boolean": true, "string": "text"}"#)
-        .expect("write config file");
+    fs::write(
+        &config_file,
+        r#"{"number": 42, "boolean": true, "string": "text"}"#,
+    )
+    .expect("write config file");
 
     let store = ConfigStore::new(Some(config_file), None).expect("create store");
 
@@ -273,8 +286,7 @@ fn config_symlink_behavior_follows_target() {
         let link_file = temp_dir.path().join("link_config.json");
 
         // Write real config file
-        fs::write(&real_file, r#"{"key": "from_symlink_target"}"#)
-            .expect("write real config file");
+        fs::write(&real_file, r#"{"key": "from_symlink_target"}"#).expect("write real config file");
 
         // Create symlink
         unix_fs::symlink(&real_file, &link_file).expect("create symlink");
@@ -322,8 +334,8 @@ fn config_platform_path_absolute_vs_relative() {
     fs::write(&config_file, r#"{"key": "value"}"#).expect("write config file");
 
     // Absolute path should work
-    let store_abs = ConfigStore::new(Some(config_file.clone()), None)
-        .expect("create store with absolute path");
+    let store_abs =
+        ConfigStore::new(Some(config_file.clone()), None).expect("create store with absolute path");
     assert!(store_abs.get("key").is_some());
 
     // Relative paths are not recommended but should be documented
@@ -356,7 +368,10 @@ fn config_unwritable_directory_error_explicit() {
 
         // But writing should fail with explicit error
         let result = store.save_global_config();
-        assert!(result.is_err(), "writing to read-only directory should fail");
+        assert!(
+            result.is_err(),
+            "writing to read-only directory should fail"
+        );
 
         // Restore permissions for cleanup
         let perms = fs::Permissions::from_mode(0o755);
@@ -376,7 +391,11 @@ fn config_malformed_json_fails_explicitly() {
     // Creating a store should fail with an explicit error message
     let result = ConfigStore::new(Some(config_file), None);
     assert!(result.is_err());
-    
+
     let err = result.unwrap_err();
-    assert!(err.contains("Invalid JSON"), "Error should mention invalid JSON: {}", err);
+    assert!(
+        err.contains("Invalid JSON"),
+        "Error should mention invalid JSON: {}",
+        err
+    );
 }

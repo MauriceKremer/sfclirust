@@ -91,7 +91,11 @@ fn render_human_readable(value: &serde_json::Value) -> io::Result<()> {
                         }
                     }
                     serde_json::Value::Object(_) | serde_json::Value::Null => {
-                        println!("{}: {}", key, serde_json::to_string_pretty(val).unwrap_or_default());
+                        println!(
+                            "{}: {}",
+                            key,
+                            serde_json::to_string_pretty(val).unwrap_or_default()
+                        );
                     }
                 }
             }

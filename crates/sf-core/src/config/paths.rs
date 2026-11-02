@@ -3,8 +3,10 @@
 //! Manages native global and project-local state directories with support for
 //! environment variable overrides and OS-specific path conventions.
 
-use std::path::{Path, PathBuf};
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use std::env;
+use std::path::{Path, PathBuf};
 
 /// Configuration directory name for Rust CLI (distinct from .sfdx)
 const STATE_DIR_NAME: &str = ".sf-rust";
@@ -116,8 +118,7 @@ pub fn get_or_create_project_state_dir() -> Result<PathBuf, String> {
 /// `Ok(())` if successful.
 /// `Err(String)` if creation or permission setting fails.
 pub fn ensure_dir_exists(path: &Path) -> Result<(), String> {
-    std::fs::create_dir_all(path)
-        .map_err(|e| format!("Failed to create directory: {}", e))?;
+    std::fs::create_dir_all(path).map_err(|e| format!("Failed to create directory: {}", e))?;
 
     #[cfg(unix)]
     {
@@ -180,8 +181,10 @@ mod tests {
             let result = get_global_state_dir();
             assert!(result.is_ok());
             let path = result.unwrap();
-            assert!(path.to_string_lossy().contains("sf-rust") 
-                 || path.to_string_lossy().contains("sf-rust"));
+            assert!(
+                path.to_string_lossy().contains("sf-rust")
+                    || path.to_string_lossy().contains("sf-rust")
+            );
         }
     }
 

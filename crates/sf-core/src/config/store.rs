@@ -7,11 +7,13 @@
 //! 4. Global config file
 //! 5. Defaults
 
-use serde_json::{json, Value};
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -107,8 +109,8 @@ impl ConfigStore {
             return Ok(HashMap::new());
         }
 
-        let content = fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read config file: {}", e))?;
+        let content =
+            fs::read_to_string(path).map_err(|e| format!("Failed to read config file: {}", e))?;
 
         let json: Value = serde_json::from_str(&content)
             .map_err(|e| format!("Invalid JSON in config file: {}", e))?;
@@ -131,8 +133,8 @@ impl ConfigStore {
     fn collect_env_config() -> HashMap<String, String> {
         let mut config = HashMap::new();
         for (key, value) in std::env::vars() {
-            if key.starts_with("SF_") {
-                let config_key = key[3..].to_lowercase();
+            if let Some(stripped) = key.strip_prefix("SF_") {
+                let config_key = stripped.to_lowercase();
                 config.insert(config_key, value);
             }
         }
@@ -252,8 +254,7 @@ impl ConfigStore {
             .map_err(|e| format!("Failed to sync config file: {}", e))?;
 
         // Atomic rename
-        fs::rename(&temp_path, path)
-            .map_err(|e| format!("Failed to rename config file: {}", e))?;
+        fs::rename(&temp_path, path).map_err(|e| format!("Failed to rename config file: {}", e))?;
 
         Ok(())
     }
@@ -301,8 +302,7 @@ impl ConfigStore {
             .map_err(|e| format!("Failed to sync config file: {}", e))?;
 
         // Atomic rename
-        fs::rename(&temp_path, path)
-            .map_err(|e| format!("Failed to rename config file: {}", e))?;
+        fs::rename(&temp_path, path).map_err(|e| format!("Failed to rename config file: {}", e))?;
 
         Ok(())
     }
