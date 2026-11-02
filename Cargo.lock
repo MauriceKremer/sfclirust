@@ -1426,8 +1426,11 @@ dependencies = [
  "assert_cmd",
  "clap",
  "predicates",
+ "serde",
+ "serde_json",
  "sf-core",
  "tempfile",
+ "thiserror 1.0.69",
  "tracing",
 ]
 

@@ -7,13 +7,13 @@ package's output and error contracts.
 
 ## B10-01: Define typed command outcomes and process exits
 
-- [ ] Add shared internal types for command success, warnings, and structured
+- [x] Add shared internal types for command success, warnings, and structured
   failures. Keep upstream JSON specifics in an explicit compatibility renderer,
   not in every workflow.
-- [ ] Define exit-code mapping for parse/validation failures, operational
+- [x] Define exit-code mapping for parse/validation failures, operational
   failures, unsupported commands, and interruption. Choose and record behavior
   against the pinned baseline; don't copy JavaScript stack traces.
-- [ ] Ensure errors preserve safe context and cannot expose credentials or full
+- [x] Ensure errors preserve safe context and cannot expose credentials or full
   sensitive responses.
 
 **Likely files**

@@ -11,11 +11,15 @@ sf-core = { path = "../sf-core" }
 clap.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
 predicates.workspace = true
 tempfile.workspace = true
+serde_json.workspace = true
 
 [[bin]]
 name = "sf-rust"
