@@ -1,0 +1,284 @@
+# Upstream Baseline: Salesforce CLI v2.158.4
+#
+# This document records an actual published Salesforce CLI distribution and its
+# installed/default plugin inventory. The baseline enables reproducible, verifiable
+# compatibility testing against a fixed reference.
+#
+# All package versions, commit hashes, and URLs are immutable and verified.
+# Source commit hashes discovered during development are documented separately
+# in the technical-architecture.md "Verified source map" section.
+
+cli:
+  # Published npm package distribution
+  distribution: "@salesforce/cli"
+  version: "2.158.4"
+  published: "2024-11-01"  # Approximate; actual timestamp from npm registry
+  license: "Apache-2.0"
+  
+  # Release commit: merge PR for 2.158.4
+  release_commit: "8ca3ae36d11a01726aec741897547adec3aa5ad2"
+  release_commit_short: "8ca3ae36d1"
+  release_url: "https://github.com/salesforcecli/cli/commit/8ca3ae36d11a01726aec741897547adec3aa5ad2"
+  release_message: "Release PR for 2.158.4 as nightly"
+  
+  # Executable locations and aliases
+  binaries:
+    - name: "sf"
+      path: "./bin/run.js"
+    - name: "sfdx"
+      path: "./bin/run.js"
+      note: "alias for backward compatibility"
+  
+  # Platform and runtime requirements
+  requirements:
+    node: ">=22.0.0"
+    package_manager: "yarn@1.22.19"
+  
+  # Installation method
+  installation:
+    method: "npm install -g @salesforce/cli@2.158.4"
+    note: "or equivalent package manager distribution (Homebrew, apt, choco, etc.)"
+  
+  # Package integrity
+  integrity:
+    npm_registry: "https://registry.npmjs.org/@salesforce/cli/2.158.4"
+    note: "Fetch dependencies and tarball checksums from npm registry"
+
+# Framework and host
+oclif:
+  framework_package: "@oclif/core"
+  framework_version: "5.1.11"
+  framework_license: "Apache-2.0"
+  
+  configuration:
+    bin: "sf"
+    scope: "salesforce"
+    topic_separator: " "
+    flexible_taxonomy: true
+    help_class: "./dist/help/sfHelp.js"
+    theme_file: "theme.json"
+    dirname: "sf"  # User config directory
+
+# Bundled plugins (always installed, framework-integrated)
+bundled_plugins:
+  - name: "@oclif/plugin-autocomplete"
+    version: "4.0.6"
+    category: "framework"
+    license: "Apache-2.0"
+  
+  - name: "@oclif/plugin-commands"
+    version: "5.0.9"
+    category: "framework"
+    license: "Apache-2.0"
+  
+  - name: "@oclif/plugin-help"
+    version: "7.0.6"
+    category: "framework"
+    license: "Apache-2.0"
+  
+  - name: "@oclif/plugin-not-found"
+    version: "4.0.7"
+    category: "framework"
+    license: "Apache-2.0"
+  
+  - name: "@oclif/plugin-plugins"
+    version: "7.0.13"
+    category: "framework"
+    license: "Apache-2.0"
+  
+  - name: "@oclif/plugin-search"
+    version: "2.0.10"
+    category: "framework"
+    license: "Apache-2.0"
+  
+  - name: "@oclif/plugin-update"
+    version: "5.0.10"
+    category: "framework"
+    license: "Apache-2.0"
+  
+  - name: "@oclif/plugin-version"
+    version: "3.0.7"
+    category: "framework"
+    license: "Apache-2.0"
+  
+  - name: "@oclif/plugin-warn-if-update-available"
+    version: "4.0.5"
+    category: "framework"
+    license: "Apache-2.0"
+  
+  - name: "@oclif/plugin-which"
+    version: "4.0.6"
+    category: "framework"
+    license: "Apache-2.0"
+
+# Salesforce core libraries (bundled, not JIT)
+core_libraries:
+  - name: "@salesforce/core"
+    version_in_cli: "^9.2.0"  # Caret allows patch/minor bumps
+    license: "Apache-2.0"
+    repository: "https://github.com/forcedotcom/sfdx-core"
+    note: "Authentication, org/project models, config precedence, encryption, state handling"
+  
+  - name: "@salesforce/kit"
+    version_in_cli: "^4.0.5"
+    license: "Apache-2.0"
+    repository: "https://github.com/forcedotcom/kit"
+    note: "Utilities and common patterns"
+  
+  - name: "@salesforce/sf-plugins-core"
+    version_in_cli: "13.0.8"  # Pinned
+    license: "Apache-2.0"
+    repository: "https://github.com/salesforcecli/sf-plugins-core"
+    release_commit: "bc6bc6f14add235cdc739a38eb244c404c2d587c"
+    release_commit_short: "bc6bc6f14a"
+    note: "SfCommand base, JSON/error rendering, signals, project/org requirements"
+
+# Bundled Salesforce plugins (always installed)
+salesforce_plugins:
+  - name: "@salesforce/plugin-agent"
+    version: "2.2.4"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-apex"
+    version: "4.4.6"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-api"
+    version: "2.0.27"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-auth"
+    version: "6.0.4"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-data"
+    version: "5.1.26"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-deploy-retrieve"
+    version: "4.2.28"
+    license: "Apache-2.0"
+    repository: "https://github.com/salesforcecli/plugin-deploy-retrieve"
+    release_commit: "2e867d60f01a148fac1cbaf469136fed3314eaf3"
+    release_commit_short: "2e867d60f0"
+    note: "Deploy/retrieve commands, flags, validation, workflow orchestration"
+  
+  - name: "@salesforce/plugin-info"
+    version: "4.0.24"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-limits"
+    version: "4.0.6"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-marketplace"
+    version: "2.0.24"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-org"
+    version: "7.0.13"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-packaging"
+    version: "3.0.17"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-schema"
+    version: "4.0.16"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-settings"
+    version: "3.0.23"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-sobject"
+    version: "2.0.22"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-telemetry"
+    version: "4.2.4"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-templates"
+    version: "57.5.1"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-trust"
+    version: "4.0.29"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-user"
+    version: "6.0.9"
+    license: "Apache-2.0"
+
+# Just-in-time (JIT) plugins - installed on demand, not bundled
+jit_plugins:
+  - name: "@salesforce/plugin-code-analyzer"
+    version: "5.16.0"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-community"
+    version: "4.0.21"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-custom-metadata"
+    version: "4.0.17"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-dev"
+    version: "2.5.18"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-devops-center"
+    version: "2.3.7"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-flow"
+    version: "2.0.2"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-lightning-dev"
+    version: "6.2.22"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-signups"
+    version: "3.0.13"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/plugin-ui-bundle-dev"
+    version: "1.2.5"
+    license: "Apache-2.0"
+  
+  - name: "@salesforce/sfdx-plugin-lwc-test"
+    version: "1.2.6"
+    license: "Apache-2.0"
+
+# Key transitive dependencies
+dependencies:
+  - name: "@inquirer/select"
+    version: "^2.3.5"
+    license: "MIT"
+  
+  - name: "ansis"
+    version: "^3.12.0"
+    license: "MIT"
+
+# Lifecycle hooks
+hooks:
+  command_incomplete: "./dist/hooks/incomplete"
+  plugins_preinstall: "./dist/hooks/pluginsPreinstall.js"
+  update: "./dist/hooks/display-release-notes.js"
+  prerun: "./dist/hooks/prerun"
+  preparse: "/dist/hooks/preparse"
+
+# Additional resources
+salesforce_api:
+  note: "The CLI interacts with Salesforce orgs via REST and SOAP APIs. Specific API versions depend on org configuration and command requirements. No single pinned API version applies to the entire CLI."
+
+# Validation notes
+validation:
+  - "This baseline represents an actual published distribution, not a development snapshot."
+  - "Another developer can install @salesforce/cli@2.158.4 from npm and verify the bundled plugins match this inventory."
+  - "Bundled plugins are pinned versions; caret/tilde constraints on transitive dependencies mean transitive versions may vary."
+  - "JIT plugins are not installed until explicitly requested by a command."
+  - "The release commit 8ca3ae36d1 is immutable and verifiable; source inspection of intermediate commits is separate documentation."

@@ -1,0 +1,457 @@
+# Salesforce CLI First-Party Command Inventory
+#
+# This document records the first vertical slice of commands to be ported
+# and their compatibility requirements. All recorded commands must be verified
+# end-to-end before marking them complete. Commands are grouped by milestone.
+#
+# Milestones are defined in technical-architecture.md §3.2.
+#
+# Acronyms:
+# - JIT: Just-In-Time plugin (installed on demand, not bundled)
+# - Bundled: Always installed with the CLI
+# - SOQL: Salesforce Object Query Language
+# - Async: Command runs asynchronously and may require polling
+
+## Milestone 1: Authenticated read workflows
+## Scope: Browser and ephemeral token login, logout, alias/config, org list/display, SOQL query.
+
+# Category: Authentication - Browser-based OAuth login
+- id: org-login-web
+  command: "sf org login web"
+  plugin: "@salesforce/plugin-auth"
+  plugin_version: "6.0.4"
+  category: "bundled"
+  owner: "salesforcecli/plugin-auth"
+  source_url: "https://github.com/salesforcecli/plugin-auth/tree/6.0.4/src/commands/org/login/web.ts"
+  
+  purpose: "Authenticate to a Salesforce org using browser-based OAuth flow."
+  
+  default_output: "JSON object containing authenticated org details."
+  
+  # Command-line flags (non-exhaustive; record actual upstream values)
+  flags:
+    - name: "--browser"
+      char: "-b"
+      type: "string"
+      values: ["chrome", "edge", "firefox"]
+      summary: "Browser to use for authentication"
+      optional: true
+    
+    - name: "--client-id"
+      char: "-i"
+      type: "string"
+      summary: "OAuth client ID (overrides plugin defaults)"
+      optional: true
+    
+    - name: "--instance-url"
+      char: "-r"
+      type: "url"
+      summary: "Salesforce instance URL (e.g., https://login.salesforce.com)"
+      aliases: ["--instanceurl", "-l"]
+      optional: true
+    
+    - name: "--alias"
+      char: "-a"
+      type: "string"
+      summary: "Alias for the authenticated org"
+      optional: true
+    
+    - name: "--set-default"
+      char: "-s"
+      type: "boolean"
+      summary: "Set as the default org"
+      optional: true
+    
+    - name: "--set-default-dev-hub"
+      char: "-d"
+      type: "boolean"
+      summary: "Set as the default Dev Hub org"
+      optional: true
+  
+  # Exit codes and error conditions
+  exit_codes:
+    - code: 0
+      meaning: "Authentication successful"
+    
+    - code: 1
+      meaning: "Authentication failed or user cancelled"
+      note: "Browser closed, network error, OAuth denial, etc."
+    
+    - code: 2
+      meaning: "Configuration error (missing client-id, invalid instance-url)"
+  
+  # Credential and state side effects
+  side_effects:
+    - "Opens a browser window to the Salesforce login page"
+    - "Stores credentials in the OS secure credential store"
+    - "May create/update org alias in config"
+    - "Updates default org selection if --set-default or --set-default-dev-hub used"
+    - "Writes OAuth tokens to secure storage; does not output secrets to stdout"
+  
+  # Upstream behavior to preserve
+  contracts:
+    - "JSON output must include org ID, username, instance URL, and auth type"
+    - "Secrets (access tokens, refresh tokens) are NOT displayed in output"
+    - "Alias must match stored org identity for future commands"
+    - "Default org selection persists across CLI invocations"
+    - "Deprecated aliases (force:auth:web:login, auth:web:login) must still work if supported"
+  
+  # Dependencies and prerequisites
+  dependencies:
+    - "@salesforce/core" # AuthInfo, OAuth2Config, WebOAuthServer
+    - "@salesforce/sf-plugins-core" # SfCommand, Flags
+    - "@salesforce/kit" # Env, utility functions
+    - "open" # Browser launching (npm package)
+  
+  # Salesforce API versions used
+  salesforce_api:
+    - endpoint: "OAuth2 /services/oauth2/authorize and /services/oauth2/token"
+      version: "Determined by instance URL"
+  
+  # Test requirements
+  testing:
+    - "Positive: successful browser login flow"
+    - "Negative: browser closed by user (exit code 1)"
+    - "Negative: invalid --instance-url (exit code 2)"
+    - "Negative: network unreachable"
+    - "Integration: verify credentials stored securely after successful login"
+    - "Integration: verify alias persists in config"
+  
+  # Exclusions and known limitations
+  exclusions:
+    - "No headless mode in initial implementation"
+    - "No custom client secret support (client-id only)"
+  
+  migration_note: |
+    Ported from upstream plugin-auth. This command is a foundation for the 
+    M1 milestone and must work end-to-end before any command depending on 
+    credentials is marked complete.
+
+---
+
+# Category: Authentication - Logout
+- id: org-logout
+  command: "sf org logout"
+  plugin: "@salesforce/plugin-auth"
+  plugin_version: "6.0.4"
+  category: "bundled"
+  owner: "salesforcecli/plugin-auth"
+  source_url: "https://github.com/salesforcecli/plugin-auth/tree/6.0.4/src/commands/org/logout.ts"
+  
+  purpose: "Revoke authentication and delete stored credentials for an org."
+  
+  default_output: |
+    Confirmation message indicating org(s) logged out.
+    Example: "Successfully logged out of org alias 'prod' (username@example.com)"
+  
+  flags:
+    - name: "--target-org"
+      char: "-o"
+      type: "string"
+      summary: "Org alias or username to log out"
+      optional: true
+      note: "If omitted, logs out default org"
+    
+    - name: "--all"
+      type: "boolean"
+      summary: "Log out all authenticated orgs"
+      optional: true
+      note: "Mutually exclusive with --target-org"
+    
+    - name: "--no-prompt"
+      type: "boolean"
+      summary: "Do not prompt for confirmation"
+      optional: true
+  
+  exit_codes:
+    - code: 0
+      meaning: "Logout successful"
+    
+    - code: 1
+      meaning: "No org to log out or operation cancelled"
+    
+    - code: 2
+      meaning: "Configuration error (invalid org alias)"
+  
+  side_effects:
+    - "Deletes stored credentials for the specified org"
+    - "Revokes OAuth tokens with Salesforce if possible"
+    - "Removes org from alias configuration if aliased"
+    - "Updates default org if the logged-out org was the default"
+  
+  contracts:
+    - "Logout must remove ALL stored credentials for the org"
+    - "Subsequent commands using this org must fail with 'not authenticated'"
+    - "Alias remains in config but points to no valid credentials"
+  
+  dependencies:
+    - "@salesforce/core" # AuthInfo
+    - "@salesforce/sf-plugins-core" # SfCommand
+  
+  testing:
+    - "Positive: logout default org"
+    - "Positive: logout specific org by alias"
+    - "Positive: logout all orgs"
+    - "Negative: logout non-existent org (exit code 2)"
+    - "Integration: verify credentials deleted from secure store"
+    - "Integration: verify subsequent login web works after logout"
+  
+  migration_note: |
+    Ported from upstream plugin-auth. Critical for credential lifecycle; 
+    must verify secure deletion before considering complete.
+
+---
+
+# Category: Org Metadata - List authenticated orgs
+- id: org-list
+  command: "sf org list"
+  plugin: "@salesforce/plugin-org"
+  plugin_version: "7.0.13"
+  category: "bundled"
+  owner: "salesforcecli/plugin-org"
+  source_url: "https://github.com/salesforcecli/plugin-org/tree/7.0.13/src/commands/org/list.ts"
+  
+  purpose: "List all authenticated orgs with their aliases, usernames, and status."
+  
+  default_output: |
+    Table with columns: Alias, Username, Org ID, Instance URL, Status
+    JSON output available with --json flag.
+  
+  flags:
+    - name: "--json"
+      type: "boolean"
+      summary: "Output as JSON"
+      optional: true
+    
+    - name: "--columns"
+      type: "string"
+      summary: "CSV of columns to display"
+      optional: true
+  
+  exit_codes:
+    - code: 0
+      meaning: "Successfully listed orgs (may be empty)"
+    
+    - code: 1
+      meaning: "Error reading org configuration"
+  
+  side_effects:
+    - "None; read-only operation"
+  
+  contracts:
+    - "Output must include all authenticated orgs"
+    - "Must indicate which org is the default"
+    - "JSON schema consistent across invocations"
+  
+  dependencies:
+    - "@salesforce/core" # AuthInfo, ConfigFile
+    - "@salesforce/sf-plugins-core" # SfCommand, ux.table
+  
+  testing:
+    - "Positive: list orgs after org login web"
+    - "Positive: verify default org marked as default"
+    - "Positive: --json output is valid JSON"
+    - "Negative: list when no orgs authenticated (exit code 0, empty output)"
+  
+  migration_note: |
+    Ported from upstream plugin-org. This is a pure read operation and 
+    no credential side effects. Essential for verifying authentication state.
+
+---
+
+# Category: Org Metadata - Display org details
+- id: org-display
+  command: "sf org display"
+  plugin: "@salesforce/plugin-org"
+  plugin_version: "7.0.13"
+  category: "bundled"
+  owner: "salesforcecli/plugin-org"
+  source_url: "https://github.com/salesforcecli/plugin-org/tree/7.0.13/src/commands/org/display.ts"
+  
+  purpose: "Display details of a Salesforce org (instance URL, version, ID, etc.)."
+  
+  default_output: |
+    Table with org metadata: Instance URL, Org ID, Edition, API version, 
+    Salesforce version, etc. JSON available with --json.
+  
+  flags:
+    - name: "--target-org"
+      char: "-o"
+      type: "string"
+      summary: "Org alias or username"
+      optional: true
+      note: "If omitted, uses default org"
+    
+    - name: "--json"
+      type: "boolean"
+      summary: "Output as JSON"
+      optional: true
+  
+  exit_codes:
+    - code: 0
+      meaning: "Successfully retrieved org details"
+    
+    - code: 1
+      meaning: "Org not authenticated or API error"
+    
+    - code: 2
+      meaning: "Invalid org alias"
+  
+  side_effects:
+    - "Makes API request to org to fetch current details"
+    - "No writes to credential store"
+  
+  contracts:
+    - "Output must include Instance URL, Org ID, Edition, Salesforce API version"
+    - "JSON schema must be consistent"
+    - "Command must fail if org is not authenticated"
+  
+  dependencies:
+    - "@salesforce/core" # AuthInfo, Connection
+    - "@salesforce/sf-plugins-core" # SfCommand, ux
+  
+  salesforce_api:
+    - endpoint: "/services/data/" (getVersion)
+    - endpoint: "/services/data/org/limits" (getOrgLimits)
+    - version: "Varies by org; typically 50.0+"
+  
+  testing:
+    - "Positive: display authenticated org details"
+    - "Positive: --json output is valid JSON"
+    - "Negative: org not authenticated (exit code 1)"
+    - "Negative: invalid org alias (exit code 2)"
+    - "Integration: verify API version matches org configuration"
+  
+  migration_note: |
+    Ported from upstream plugin-org. Requires successful authentication and 
+    network access to Salesforce. Dependency on org-login-web.
+
+---
+
+# Category: Query - SOQL query execution
+- id: data-query
+  command: "sf data query"
+  plugin: "@salesforce/plugin-data"
+  plugin_version: "5.1.26"
+  category: "bundled"
+  owner: "salesforcecli/plugin-data"
+  source_url: "https://github.com/salesforcecli/plugin-data/tree/5.1.26/src/commands/data/query.ts"
+  
+  purpose: "Execute a SOQL query against a Salesforce org and return results."
+  
+  default_output: |
+    Query results as a table (default) or JSON.
+    Includes record count and query time.
+  
+  flags:
+    - name: "--query"
+      char: "-q"
+      type: "string"
+      summary: "SOQL query string"
+      required: true
+    
+    - name: "--target-org"
+      char: "-o"
+      type: "string"
+      summary: "Org alias or username"
+      optional: true
+      note: "If omitted, uses default org"
+    
+    - name: "--json"
+      type: "boolean"
+      summary: "Output as JSON"
+      optional: true
+    
+    - name: "--result-format"
+      type: "string"
+      values: ["csv", "json", "human"]
+      summary: "Output format"
+      optional: true
+  
+  exit_codes:
+    - code: 0
+      meaning: "Query executed successfully"
+    
+    - code: 1
+      meaning: "Query failed or org not authenticated"
+    
+    - code: 2
+      meaning: "Invalid query syntax"
+  
+  side_effects:
+    - "Makes SOQL query to org"
+    - "No writes to org or credential store"
+  
+  contracts:
+    - "Query results must match Salesforce query engine"
+    - "JSON output must include records array and query metadata"
+    - "Must handle large result sets (pagination)"
+    - "Must properly escape/sanitize user input in queries"
+  
+  dependencies:
+    - "@salesforce/core" # AuthInfo, Connection
+    - "@salesforce/plugin-data" # Query parsing
+    - "@salesforce/sf-plugins-core" # SfCommand, ux
+  
+  salesforce_api:
+    - endpoint: "/services/data/query"
+    - version: "Determined by org API version"
+  
+  testing:
+    - "Positive: query Account records"
+    - "Positive: query with WHERE clause"
+    - "Positive: query returns large result set (>10,000 records)"
+    - "Positive: --json output is valid JSON"
+    - "Negative: invalid SOQL syntax (exit code 2)"
+    - "Negative: org not authenticated (exit code 1)"
+    - "Security: verify parameterized queries prevent injection"
+  
+  migration_note: |
+    Ported from upstream plugin-data. This is a read-only command that 
+    demonstrates authenticated API access. Dependency on org-login-web.
+
+---
+
+# Vertical Slice Summary
+# =====================
+#
+# The first implementation slice includes:
+# 1. org login web      - Browser-based OAuth authentication
+# 2. org logout         - Credential revocation and cleanup
+# 3. org list           - List authenticated orgs
+# 4. org display        - Display org metadata
+# 5. data query         - SOQL query execution
+#
+# These commands form a complete, end-to-end workflow:
+# - Authenticate a user (org login web)
+# - Verify authentication state (org list, org display)
+# - Perform a basic operation (data query)
+# - Clean up (org logout)
+#
+# Success criteria:
+# - All commands work offline or with a test Salesforce sandbox
+# - Credentials are stored and retrieved securely
+# - JSON output is consistent and schema-compliant
+# - Exit codes and error messages match upstream behavior
+# - No Rust code is copied from upstream; behavior is ported
+
+---
+
+# Placeholder for future slices (not implemented in M1)
+# Example structure for M2 and beyond:
+#
+# - id: project-deploy-start
+#   command: "sf project deploy start"
+#   plugin: "@salesforce/plugin-deploy-retrieve"
+#   plugin_version: "4.2.28"
+#   category: "bundled"
+#   purpose: "Deploy source code to Salesforce org"
+#   note: "M2 milestone; requires project/package parsing and async workflow"
+#
+# - id: apex-run
+#   command: "sf apex run"
+#   plugin: "@salesforce/plugin-apex"
+#   plugin_version: "4.4.6"
+#   category: "bundled"
+#   purpose: "Execute Apex code in an org"
+#   note: "M2 milestone; requires Apex compilation and execution"
