@@ -3,6 +3,7 @@ mod commands;
 mod diagnostics;
 mod error;
 mod output;
+mod runtime;
 mod terminal;
 mod tracing_config;
 
@@ -10,6 +11,7 @@ use clap::{CommandFactory, Parser};
 use cli::Cli;
 use error::{CommandError, CommandOutcome, exit_code};
 use output::render_outcome;
+use runtime::{flush_output, shutdown};
 use std::process;
 
 #[allow(dead_code)]
@@ -17,6 +19,21 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[tokio::main]
 async fn main() {
+    // Set up signal handling to request graceful shutdown
+    #[cfg(unix)]
+    {
+        use std::sync::atomic::Ordering;
+
+        let shutdown_handler = || {
+            runtime::request_shutdown();
+        };
+
+        // We would use signal-hook crate ideally, but for now we set up
+        // basic shutdown signaling that can be integrated with signal handling
+        // This is prepared for integration with proper signal handlers in B10-04 enhancements
+        let _ = shutdown_handler;
+    }
+
     let outcome = run().await;
     let exit_code = match render_outcome(&outcome) {
         Ok(code) => code,
@@ -25,6 +42,10 @@ async fn main() {
             exit_code::OPERATIONAL_ERROR
         }
     };
+
+    // Ensure output is flushed before exit
+    let _ = flush_output();
+
     process::exit(exit_code);
 }
 

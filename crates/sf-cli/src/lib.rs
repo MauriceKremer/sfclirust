@@ -7,5 +7,6 @@ pub mod commands;
 pub mod diagnostics;
 pub mod error;
 pub mod output;
+pub mod runtime;
 pub mod terminal;
 pub mod tracing_config;

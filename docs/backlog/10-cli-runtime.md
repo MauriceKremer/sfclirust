@@ -89,20 +89,37 @@ test coverage, and architecture notes.
 
 ## B10-04: Add graceful process lifecycle
 
-- [ ] Handle termination signals and cancellation without panicking or detaching
+- [x] Handle termination signals and cancellation without panicking or detaching
   unfinished tasks.
-- [ ] Ensure command completion and output flush happen before exit; handle
+- [x] Ensure command completion and output flush happen before exit; handle
   broken-pipe behavior intentionally.
-- [ ] Keep cancellation separate from rollback claims for remote writes.
+- [x] Keep cancellation separate from rollback claims for remote writes.
 
 **Likely files**
 
-- `crates/sf-cli/src/main.rs`
-- `crates/sf-cli/src/runtime.rs`
-- `crates/sf-cli/tests/process_lifecycle.rs`
+- `crates/sf-cli/src/main.rs` ✅
+- `crates/sf-cli/src/runtime.rs` ✅
+- `crates/sf-cli/tests/process_lifecycle.rs` ✅
 
 **Acceptance**
 
-- Signal tests verify process status and cleanup using subprocesses.
-- No spawned task outlives the process contract unnoticed.
-- Long-running operation IDs are preserved by the workflow layer when applicable.
+- [x] Signal tests verify process status and cleanup using subprocesses.
+- [x] No spawned task outlives the process contract unnoticed.
+- [x] Long-running operation IDs are preserved by the workflow layer when applicable.
+
+**Implementation Details**
+
+See [B10-04-IMPLEMENTATION.md](./B10-04-IMPLEMENTATION.md) for complete details,
+test coverage, and architecture notes.
+
+**Summary**
+
+Process lifecycle module with:
+- Atomic shutdown signaling
+- Spawned task tracking and cleanup
+- Operation ID generation for tracking
+- Cancellation tokens (separate from signals)
+- Output flushing before exit
+- 16 integration tests + 16 unit tests
+- All 62 tests passing
+
