@@ -1,13 +1,13 @@
 # AGENTS.md
 
-`sf-rust` is a native Rust reimplementation of Salesforce CLI (`sf`), delivered
-in vertical slices toward first-party command parity with a pinned upstream
+## ⚠️ CORE PRINCIPLE: NO MISTAKES. NO CI MISTAKES.
+
+`sf-rust` is a production-grade native Rust reimplementation of Salesforce CLI (`sf`),
+delivered in vertical slices toward first-party command parity with a pinned upstream
 baseline. The shipped binary is native-only: Node.js exists solely to run the
 upstream oracle inside compatibility tests.
 
-**Current state:** specs and backlog only. No Cargo workspace, CI, or
-compatibility inventory exists yet, so every check the docs describe is a
-requirement to build, not a gate that already runs.
+**Every change must be correct, complete, and pass all CI checks before commit.**
 
 ## Workflow
 
@@ -60,3 +60,52 @@ exist to catch them:
 - Cite upstream code by the immutable commit SHAs in the source map, port
   behaviour rather than TypeScript structure, and keep required attribution for
   adapted material.
+
+## Code Quality & CI Requirements
+
+**Before committing ANY code, verify all checks pass:**
+
+```bash
+cargo fmt --check       # ✅ Format must be correct
+cargo build --all       # ✅ All crates compile
+cargo clippy --all-targets  # ✅ Zero clippy warnings/errors
+cargo test --all        # ✅ All tests pass, zero warnings
+cargo deny check         # ✅ Licenses, security, dependencies ok
+cargo audit             # ✅ No known vulnerabilities
+```
+
+**Pre-commit verification checklist:**
+- [ ] Code compiles cleanly without warnings
+- [ ] All tests pass with zero warnings
+- [ ] Clippy reports zero errors
+- [ ] Code is properly formatted
+- [ ] License and security checks pass
+- [ ] All acceptance criteria have test coverage
+- [ ] Implementation documented (IMPLEMENTATION.md)
+- [ ] Backlog item status updated
+- [ ] Commit message is detailed and references the backlog item
+
+**Common pitfalls to avoid:**
+- ❌ Don't use `unwrap()` or `expect()` in production code (workspace forbids)
+- ❌ Don't use `unsafe` blocks (workspace forbids)
+- ❌ Don't touch user's `~/.sf`, `~/.sfdx`, or OS keychain
+- ❌ Don't skip CI checks or commit with warnings
+- ❌ Don't accept malformed files silently
+- ❌ Don't leave code partially working
+- ✅ Use temp directories (`TempDir`) for test state
+- ✅ Make errors explicit with Result<T, E>
+- ✅ Test happy path, edge cases, and error paths
+- ✅ Write tests before code (TDD)
+- ✅ Add `#![allow(clippy::expect_used, clippy::unwrap_used)]` to test-only files
+
+## Acceptance Criteria Verification
+
+For each backlog item, verify **all** acceptance criteria:
+1. Read every requirement in the backlog document
+2. Each requirement has at least one test demonstrating it
+3. All tests pass with zero warnings
+4. No system state touched (only temp dirs and mocks)
+5. Errors are explicit and tested
+6. Implementation documented
+7. All CI checks pass
+8. Commit message references the backlog item ID
