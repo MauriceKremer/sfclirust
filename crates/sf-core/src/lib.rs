@@ -2,3 +2,5 @@
 //!
 //! This library implements the business logic for Salesforce CLI commands,
 //! including configuration management, authentication flows, and command coordination.
+
+pub mod config;
