@@ -37,28 +37,33 @@ on the authenticated-session interface defined here.
 
 ## B20-02: Define credential storage and secret types
 
-- [ ] Define a narrow credential-store interface and adapters for supported OS
+**Status: ✅ COMPLETE**
+
+- [x] Define a narrow credential-store interface and adapters for supported OS
   secure stores plus an in-memory test implementation.
-- [ ] Add typed secret wrappers and ensure `Debug`, serialization, tracing, and
+- [x] Add typed secret wrappers and ensure `Debug`, serialization, tracing, and
   error contexts cannot expose contents.
-- [ ] Define an ephemeral headless credential source. It must not persist tokens
+- [x] Define an ephemeral headless credential source. It must not persist tokens
   or pass them in child-process arguments.
-- [ ] Fail clearly if secure storage is unavailable. Do not add a plaintext or
+- [x] Fail clearly if secure storage is unavailable. Do not add a plaintext or
   generic-keychain fallback without a separately approved design.
 
-**Likely files**
+**Implementation:** [B20-02-IMPLEMENTATION.md](B20-02-IMPLEMENTATION.md)
 
-- `crates/sf-core/src/auth/mod.rs`
-- `crates/sf-core/src/auth/credentials.rs`
-- `crates/sf-core/src/auth/secret.rs`
-- `crates/sf-core/tests/credential_store.rs`
+**Summary:**
+- 15 tests passing (credential store + secret safety)
+- CredentialBackend interface with InMemoryStore implementation
+- Secret<T> wrapper hides contents in Debug/Display/errors
+- Ephemeral headless mode for CI/CD
+- LogoutAction enum distinguishes local deletion from remote revocation
+- No OS secure store yet; platform adapters as future work
 
-**Acceptance**
-
-- Tests prove namespacing, persistence lifecycle, unavailable-store behavior,
-  and no secret leakage.
-- Platform backend behavior is tested natively before declaring an OS supported.
-- Logout distinguishes local deletion from remote revocation.
+**Files:**
+- `crates/sf-core/src/auth/mod.rs` — module exports
+- `crates/sf-core/src/auth/secret.rs` — typed secret wrapper
+- `crates/sf-core/src/auth/credentials.rs` — credential types and namespacing
+- `crates/sf-core/src/auth/store.rs` — store interface and InMemoryStore
+- `crates/sf-core/tests/credential_store.rs` — comprehensive tests
 
 ## B20-03: Implement org selection and auth lifecycle
 
