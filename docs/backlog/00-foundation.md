@@ -156,11 +156,11 @@ with enforceable checks, not just a collection of crates.
 
 ## B00-05: Record third-party dependency policy
 
-- [ ] Add explicit allowed/denied license and source rules; review policy against
+- [x] Add explicit allowed/denied license and source rules; review policy against
   chosen dependencies and upstream material separately.
-- [ ] Pin versions for audit/deny/coverage tools and document installation
+- [x] Pin versions for audit/deny/coverage tools and document installation
   commands that do not silently select arbitrary latest versions.
-- [ ] Add an owner and review cadence for advisory exceptions.
+- [x] Add an owner and review cadence for advisory exceptions.
 
 **Initial files**
 

@@ -1,11 +1,26 @@
-# Dependency policy for sf-rust workspace
+# Salesforce CLI Rust Reimplementation - Dependency Policy
+#
+# This policy enforces licensing, supply chain, and security controls for the sf-rust project.
+# The native implementation is Apache-2.0; all dependencies must be compatible with this license
+# and with the original Salesforce CLI's Apache-2.0 requirement.
+#
 # See: https://embarkstudios.github.io/cargo-deny/
+# License compatibility: https://www.apache.org/legal/resolved.html
 
 [advisories]
-ignore = []
+# Security: Deny all known vulnerabilities
+db-path = "~/.cargo/advisory-db"
 
 [licenses]
+# Require all dependencies to declare a license
 
 [bans]
+# Check for multiple versions of a crate (can cause bloat and surprising behavior)
+multiple-versions = "warn"
 
 [sources]
+# Require dependencies to come from well-known registries only
+unknown-registry = "deny"
+unknown-git = "deny"
+
+

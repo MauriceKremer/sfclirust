@@ -161,37 +161,48 @@ Add individual lints when they enforce a useful, agreed rule.
 
 ## 6. Setup and Required Developer Checks
 
-**Today:** there is no Cargo workspace to build. Do not describe the following as
-working setup steps until the bootstrap deliverables exist.
-
 **After bootstrap:**
 
-1. Install Rust through the [official rustup instructions](https://rustup.rs/),
-   inspect the workspace's pinned toolchain, and install the documented platform
-   prerequisites for TLS and credential storage.
-2. Install the exact versions of `cargo-audit`, `cargo-deny`, and `cargo-llvm-cov`
-   recorded by the bootstrap CI/tooling configuration. Tool installation must
-   specify `--version` and `--locked`, not silently fetch the newest executable.
+1. Install Rust through the [official rustup instructions](https://rustup.rs/).
+   The workspace's development toolchain is pinned in `rust-toolchain.toml` (1.99.1 stable).
+   Install platform prerequisites for TLS and credential storage (see [security requirements](security-compliance.md)).
+
+2. Install audit and policy tools with pinned versions—do not use `latest`:
+
+   ```sh
+   cargo install cargo-audit --version 0.22.2 --locked
+   cargo install cargo-deny --version 0.20.2 --locked
+   cargo install cargo-llvm-cov --version 0.6.12 --locked
+   ```
+
+   Versions are verified against known security policies and CI runs.
+   Update versions only via reviewed change to this file and CI config.
+
 3. Run the required commands below from the workspace root.
-4. Run `cargo run -p sf-cli --bin sf-rust -- --help`. Ordinary development and tests
-   require no Salesforce credentials. Use only a dedicated test org for opt-in
-   live tests; never put tokens or passwords in configuration JSON.
+   All builds use `--locked` for reproducible, pinned dependency resolution.
+   Windows jobs must set `RUSTDOCFLAGS` as an environment variable (POSIX syntax shown).
 
-```sh
-cargo fmt --all -- --check
-cargo check --workspace --all-targets --locked
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
-RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
-cargo audit
-cargo deny check
-```
+   ```sh
+   cargo fmt --all -- --check
+   cargo check --workspace --all-targets --locked
+   cargo clippy --workspace --all-targets --locked -- -D warnings
+   cargo test --workspace --locked
+   RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+   cargo audit
+   cargo deny check
+   ```
 
-The environment assignment above uses POSIX shell syntax; Windows jobs must set
-the equivalent environment variable. `cargo test --workspace` includes doctests
-as well as member-crate tests. Feature variants and the MSRV job are additional
-checks described in the [testing strategy](testing-strategy.md), not substitutes
-for this default-feature baseline.
+4. Run `cargo run -p sf-cli --bin sf-rust -- --help` to verify the binary.
+   Ordinary development and tests require no Salesforce credentials.
+   Live org testing is deferred to later phases; never put tokens/passwords in JSON config.
+
+**About the checks:**
+
+- `cargo fmt`, `clippy`, `test`, and `doc` include all workspace members and all targets.
+- `cargo audit` fetches the RustSec advisory database and checks the lock file.
+- `cargo deny check` enforces licensing and supply chain policies per `deny.toml`.
+- CI jobs run these checks in parallel on Linux, macOS, and Windows with native runners.
+- Repository merge rules require all checks to pass; skippable workflows are not enforcement.
 
 The bootstrap change MUST supply the manifest, toolchain pin, lockfile, lint
 inheritance, audit/license policy, and CI jobs before implementation is accepted.

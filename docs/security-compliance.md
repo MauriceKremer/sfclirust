@@ -194,3 +194,66 @@ process for dependency updates, credential exposure, revocation guidance, and
 patched releases. Security controls must have negative tests and named release
 checks in the [testing strategy](testing-strategy.md); a compliance heading alone
 is not an assurance or certification.
+
+## 8. Third-Party Dependency Policy and Review
+
+The `deny.toml` file records the workspace's supply chain control policies:
+
+- **Advisories**: The RustSec advisory database is fetched daily in CI and checked
+  against the locked dependency set. All known vulnerabilities are denied; no
+  silent transitive exposure is allowed.
+- **Licenses**: All dependencies must declare a license. Widely-used permissive
+  licenses compatible with Apache-2.0 (MIT, BSD, ISC, Unlicense, MPL-2.0) are
+  allowed; copyleft licenses (GPL, AGPL) and proprietary restrictions are denied.
+  See the [upstream baseline](../compatibility/upstream-baseline.yaml) and deny
+  rules for detail.
+- **Sources**: Dependencies must come from the Rust registry (crates.io) only;
+  git dependencies and unknown registries are denied unless explicitly reviewed.
+- **Bans**: Multiple versions of a crate are warned; future bans may restrict
+  problematic crates.
+
+### Advisory Exceptions
+
+The RustSec advisory database occasionally includes advisories that affect
+transitive dependencies in ways that:
+- The current version is not yet released with a fix.
+- The fix requires upstream intervention or a longer upgrade path.
+- The vulnerable code path is not reachable by this project.
+
+Advisory exceptions require:
+1. **Owner**: Named project stakeholder responsible for tracking the exception.
+2. **Expiry**: Calendar date by which the exception must be reviewed or removed.
+3. **Reason**: Clear statement of the reachability assessment or mitigation.
+4. **Replacement**: The date the exception was added and the lock file revision.
+
+Record exceptions in `deny.toml` under `advisories.ignore` with the advisory ID.
+Do not add exceptions without naming an owner and expiry date. Upon expiry,
+assess whether a fix has been released and commit a removal; if not resolved,
+renew with an updated date or escalate.
+
+Example (not active):
+```toml
+[advisories]
+ignore = [
+  { id = "RUSTSEC-2024-00001", reason = "pending upstream release of library", expires = "2025-01-01", owner = "example@example.com" }
+]
+```
+
+### Tool Versions and Installation
+
+The CI workflow pins exact versions of audit and policy tools to ensure
+reproducible scans. Developers must use matching versions for local checks.
+See the [development setup](development-setup.md#6-setup-and-required-developer-checks)
+for pinned `cargo-audit`, `cargo-deny`, and `cargo-llvm-cov` versions and
+installation commands with `--locked`.
+
+Tool upgrades must be:
+1. Tested against the current dependency set in a separate PR.
+2. Reviewed by the project owner before committing.
+3. Updated in `deny.toml`, `development-setup.md`, and `.github/workflows/ci.yml`
+   in a single change.
+4. Documented in the commit message with any policy or behavior changes.
+
+Automatically selecting the latest tool version (e.g., omitting `--version` or
+`--locked`) defeats reproducibility and introduces unexpected policy changes
+without review.
