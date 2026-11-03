@@ -72,7 +72,6 @@ fn maps_apex_classes_and_triggers_to_their_metadata_api_paths() {
             file.metadata_path()
                 .to_string_lossy()
                 .replace('\\', "/")
-                .into_owned()
         })
         .collect::<Vec<_>>();
     assert_eq!(
