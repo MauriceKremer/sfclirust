@@ -135,6 +135,105 @@ impl CredentialBackend for InMemoryStore {
     }
 }
 
+/// OS secure store implementation using the keyring crate.
+///
+/// Stores credentials in the platform's native credential storage:
+/// - macOS: Keychain
+/// - Windows: Credential Manager
+/// - Linux: secret-service (via DBus)
+///
+/// Non-secret metadata (org ID, alias) is stored in plaintext via the index,
+/// while the actual credential token is stored only in the OS secure store.
+#[derive(Debug)]
+pub struct OsSecureStore {
+    service: String,
+}
+
+impl OsSecureStore {
+    /// Create a new OS secure store with a service identifier.
+    ///
+    /// The service identifier should be a unique namespace to avoid conflicts.
+    /// Example: "com.salesforce.sf-rust"
+    pub fn new(service: impl Into<String>) -> Self {
+        OsSecureStore {
+            service: service.into(),
+        }
+    }
+
+    /// Format a credential key for storage in the OS keyring.
+    fn format_credential_key(org_id: &str, alias: &str) -> String {
+        format!("sf-rust:{}:{}", org_id, alias)
+    }
+}
+
+impl CredentialBackend for OsSecureStore {
+    fn store(&self, credential: Credential) -> CredStoreResult<()> {
+        let key = Self::format_credential_key(&credential.org_id, &credential.alias);
+        let token_str = credential.token().expose();
+
+        keyring::Entry::new(&self.service, &key)
+            .and_then(|entry| entry.set_password(token_str))
+            .map_err(|e| {
+                CredStoreError::StoreFailed(format!("Failed to store credential: {}", e))
+            })?;
+
+        Ok(())
+    }
+
+    fn retrieve(&self, key: &CredentialKey) -> CredStoreResult<Credential> {
+        let keyring_key = Self::format_credential_key(key.org_id(), key.alias());
+
+        let token_str = keyring::Entry::new(&self.service, &keyring_key)
+            .and_then(|entry| entry.get_password())
+            .map_err(|e| {
+                CredStoreError::RetrieveFailed(format!("Failed to retrieve credential: {}", e))
+            })?;
+
+        let cred = Credential::new(
+            key.org_id().to_string(),
+            key.alias().to_string(),
+            crate::auth::secret::Secret::new(token_str),
+            "Bearer".to_string(),
+        );
+
+        Ok(cred)
+    }
+
+    fn list(&self) -> CredStoreResult<Vec<Credential>> {
+        Err(CredStoreError::StorageUnavailable(
+            "OS keyring does not support listing credentials. Use a native org index instead."
+                .to_string(),
+        ))
+    }
+
+    fn delete(&self, key: &CredentialKey) -> CredStoreResult<()> {
+        let keyring_key = Self::format_credential_key(key.org_id(), key.alias());
+
+        keyring::Entry::new(&self.service, &keyring_key)
+            .and_then(|entry| entry.delete_credential())
+            .map_err(|e| {
+                CredStoreError::DeleteFailed(format!("Failed to delete credential: {}", e))
+            })?;
+
+        Ok(())
+    }
+
+    fn exists(&self, key: &CredentialKey) -> CredStoreResult<bool> {
+        let keyring_key = Self::format_credential_key(key.org_id(), key.alias());
+
+        match keyring::Entry::new(&self.service, &keyring_key)
+            .and_then(|entry| entry.get_password())
+        {
+            Ok(_) => Ok(true),
+            Err(keyring::error::Error::NoEntry) => Ok(false),
+            Err(e) => Err(CredStoreError::RetrieveFailed(format!(
+                "Failed to check credential existence: {}",
+                e
+            ))),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used, clippy::unwrap_used)]
