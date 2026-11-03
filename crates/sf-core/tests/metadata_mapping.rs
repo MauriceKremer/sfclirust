@@ -68,11 +68,7 @@ fn maps_apex_classes_and_triggers_to_their_metadata_api_paths() {
     let paths = mapping
         .files()
         .iter()
-        .map(|file| {
-            file.metadata_path()
-                .to_string_lossy()
-                .replace('\\', "/")
-        })
+        .map(|file| file.metadata_path().to_string_lossy().replace('\\', "/"))
         .collect::<Vec<_>>();
     assert_eq!(
         paths,
