@@ -4,7 +4,7 @@ resolver = "3"
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.85"  # MSRV required for Edition 2024; verify against dependency graph
+rust-version = "1.88"  # Required by the audited ZIP parser release.
 authors = ["Salesforce"]
 license = "Apache-2.0"
 
@@ -20,7 +20,17 @@ await_holding_lock = "deny"
 
 [workspace.dependencies]
 tokio = { version = "1.40", features = ["full"] }
-reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "http2",
+    "rustls-tls-webpki-roots",
+    "system-proxy",
+] }
+base64 = "0.22"
+ring = "0.17"
+httpdate = "1.0"
+fastrand = "2.5"
+tokio-util = { version = "0.7", features = ["rt"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 clap = { version = "4.5", features = ["derive"] }
@@ -37,3 +47,4 @@ assert_cmd = "2.0"
 predicates = "3.1"
 proptest = "1.4"
 quick-xml = "0.41"
+zip = { version = "=9.3.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }

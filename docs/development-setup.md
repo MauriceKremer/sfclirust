@@ -1,8 +1,9 @@
 # Rust Development and Setup Requirements
 
-**Status:** Implementation specification; the workspace and checks described here
-do not exist yet. They are required deliverables for the bootstrap milestone, not
-claims about current enforcement.
+**Status:** Normative requirements. The workspace and CI workflow exist, but not
+all checks pass or are enforced. B00-06 in the
+[backlog](backlog/00-foundation.md#b00-06-restore-and-enforce-the-ci-baseline)
+owns baseline repair; B40-05 verifies final readiness.
 
 See [architecture and delivery scope](technical-architecture.md),
 [testing and CI](testing-strategy.md), and
@@ -175,8 +176,9 @@ Add individual lints when they enforce a useful, agreed rule.
    cargo install cargo-llvm-cov --version 0.6.12 --locked
    ```
 
-   Versions are verified against known security policies and CI runs.
-   Update versions only via reviewed change to this file and CI config.
+   These are the required tool pins. CI installs these exact versions with
+   `--locked`; B00-06 aligns the workflow and verifies a green run. Update
+   versions only via reviewed change to this file and CI config.
 
 3. Run the required commands below from the workspace root.
    All builds use `--locked` for reproducible, pinned dependency resolution.
@@ -201,7 +203,10 @@ Add individual lints when they enforce a useful, agreed rule.
 - `cargo fmt`, `clippy`, `test`, and `doc` include all workspace members and all targets.
 - `cargo audit` fetches the RustSec advisory database and checks the lock file.
 - `cargo deny check` enforces licensing and supply chain policies per `deny.toml`.
-- CI jobs run these checks in parallel on Linux, macOS, and Windows with native runners.
+- Workspace tests and builds run natively on Linux x86_64, macOS arm64 and
+  x86_64, and Windows x86_64. Formatting, Clippy, dependency scans, docs, and
+  coverage run on Linux. See the [CI workflow](../.github/workflows/ci.yml) for
+  the exact toolchains, runner labels, and immutable action revisions.
 - Repository merge rules require all checks to pass; skippable workflows are not enforcement.
 
 The bootstrap change MUST supply the manifest, toolchain pin, lockfile, lint

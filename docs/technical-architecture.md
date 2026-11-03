@@ -54,7 +54,7 @@ set of dependencies installed together in one published distribution:
 |---|---|---|
 | `salesforcecli/cli` | [`8ca3ae36d1`](https://github.com/salesforcecli/cli/tree/8ca3ae36d11a01726aec741897547adec3aa5ad2), manifest version `2.158.4` | Packaging, plugin inventory, topic parsing, hooks, and parser exit-code configuration. |
 | `salesforcecli/sf-plugins-core` | [`bc6bc6f14a`](https://github.com/salesforcecli/sf-plugins-core/tree/bc6bc6f14add235cdc739a38eb244c404c2d587c) | `SfCommand`, JSON/error rendering, signals, and project/org requirements. |
-| `forcedotcom/sfdx-core` (`@salesforce/core`) | [`23d7f942fa`](https://github.com/forcedotcom/sfdx-core/tree/23d7f942fa79b4a8eec9b75b4b9d97a425eb508b) | Config precedence, authentication, org/project models, encryption and state handling. |
+| `forcedotcom/sfdx-core` (`@salesforce/core`) | [`23d7f942fa`](https://github.com/forcedotcom/sfdx-core/tree/23d7f942fa79b4a8eec9b75b4b9d97a425eb508b) | Config precedence, authentication, org/project models, [project resolution](https://github.com/forcedotcom/sfdx-core/blob/23d7f942fa79b4a8eec9b75b4b9d97a425eb508b/src/sfProject.ts), [project field schema](https://github.com/forcedotcom/sfdx-core/blob/23d7f942fa79b4a8eec9b75b4b9d97a425eb508b/src/schema/sfdx-project/sfdxProjectJson.ts), encryption and state handling. |
 | `salesforcecli/plugin-deploy-retrieve` | [`2e867d60f0`](https://github.com/salesforcecli/plugin-deploy-retrieve/tree/2e867d60f01a148fac1cbaf469136fed3314eaf3) | Deploy/retrieve command flags, validation, and workflow orchestration. |
 | `forcedotcom/source-deploy-retrieve` | [`b8998b38cf`](https://github.com/forcedotcom/source-deploy-retrieve/tree/b8998b38cf5b4d3278f5fb1f964b96d5a47886d7) | Source/metadata conversion and deployment/retrieval implementation. |
 
@@ -248,6 +248,23 @@ Do not introduce a Rust dynamic-library ABI or automatic untrusted `PATH` discov
 The M1 list is the starting implementation backlog, not a claim that those
 commands are already available. Restrict its first release further if needed,
 but never omit a workflow's failure handling or credential cleanup to call it done.
+
+### B40 developer-preview checkpoint
+
+The [B40 delivery plan](backlog/README.md#b40-delivery-target-runnable-developer-preview)
+combines the initial M1 user journey with the narrow M2 metadata slice. It requires
+browser login with durable OS credentials, explicit ephemeral authentication,
+org list/display/logout, SOQL query, and supported ApexClass/ApexTrigger
+deploy/retrieve workflows through the real executable. Alias/default settings
+are supported through login and target selection; standalone alias/config
+management and access-token-login command parity remain deferred.
+
+Close the missing secure-store and executable integration work before treating
+metadata commands as usable. After B40-03/04, B40-05 reviews and stabilizes the
+combined implementation and requires green CI plus native/live evidence on the
+delivered revision. This checkpoint is a runnable build-from-source preview;
+public packaging and broader parity remain B50 work, without weakening the
+required command compatibility or security gates.
 
 Each milestone must include documentation, tests, and recoverable error behavior.
 No release may advertise blanket Salesforce CLI compatibility while unsupported

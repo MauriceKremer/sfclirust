@@ -157,13 +157,13 @@ impl ConfigStore {
         // Check in order of precedence (highest to lowest)
 
         // 1. Command-line flags
-        if let Ok(cli) = self.cli_config.lock() {
-            if let Some(value) = cli.get(&key_lower) {
-                return Some(ConfigValue {
-                    value: value.clone(),
-                    source: ConfigSource::CommandLine,
-                });
-            }
+        if let Ok(cli) = self.cli_config.lock()
+            && let Some(value) = cli.get(&key_lower)
+        {
+            return Some(ConfigValue {
+                value: value.clone(),
+                source: ConfigSource::CommandLine,
+            });
         }
 
         // 2. Environment variables
@@ -175,23 +175,23 @@ impl ConfigStore {
         }
 
         // 3. Project config
-        if let Ok(project) = self.project_config.lock() {
-            if let Some(value) = project.get(&key_lower) {
-                return Some(ConfigValue {
-                    value: value.clone(),
-                    source: ConfigSource::ProjectConfig,
-                });
-            }
+        if let Ok(project) = self.project_config.lock()
+            && let Some(value) = project.get(&key_lower)
+        {
+            return Some(ConfigValue {
+                value: value.clone(),
+                source: ConfigSource::ProjectConfig,
+            });
         }
 
         // 4. Global config
-        if let Ok(global) = self.global_config.lock() {
-            if let Some(value) = global.get(&key_lower) {
-                return Some(ConfigValue {
-                    value: value.clone(),
-                    source: ConfigSource::GlobalConfig,
-                });
-            }
+        if let Ok(global) = self.global_config.lock()
+            && let Some(value) = global.get(&key_lower)
+        {
+            return Some(ConfigValue {
+                value: value.clone(),
+                source: ConfigSource::GlobalConfig,
+            });
         }
 
         // 5. Defaults

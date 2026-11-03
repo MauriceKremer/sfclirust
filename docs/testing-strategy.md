@@ -1,8 +1,9 @@
 # Testing, Compatibility, and Release Gates
 
-**Status:** Required test design. No test suite or CI workflow exists yet.
-These requirements become enforceable only when the bootstrap milestone wires
-them into required repository checks.
+**Status:** Required test design with implemented suites and a CI workflow.
+Existing tests do not establish complete command support or green required CI.
+B00-06 repairs/enforces the baseline; B40-05 verifies the runnable milestone
+against the gates below on the final delivered revision.
 
 Read with the [architecture](technical-architecture.md),
 [Rust development requirements](development-setup.md), and
@@ -122,17 +123,21 @@ Keep regression cases for every discovered failure. Property-based testing is no
 the same as coverage-guided fuzzing.
 
 Add separate `cargo-fuzz` targets for untrusted XML/JSON/archive handling when
-those parsers are implemented. The fuzz toolchain may use a separately pinned
-nightly; it must not change the application's stable compiler requirement.
-Seed with small synthetic examples and keep minimized crash reproducers. Include
-size/time limits: "does not panic" alone is insufficient for resource exhaustion.
+those parsers are implemented and a bounded fuzz runtime is provisioned in CI.
+The fuzz toolchain may use a separately pinned nightly; it must not change the
+application's stable compiler requirement. Seed with small synthetic examples
+and keep minimized crash reproducers. Include size/time limits: "does not panic"
+alone is insufficient for resource exhaustion.
 
-Require at least **80% line coverage of `sf-core` and `sf-api` library code**:
+Require at least **80% line coverage of `sf-core` and `sf-api` library code**,
+and retain the CI job's LCOV report artifact:
 
 ```sh
-cargo llvm-cov -p sf-core -p sf-api --lib --locked --fail-under-lines 80
+cargo llvm-cov -p sf-core -p sf-api --locked --fail-under-lines 80
 ```
 
+Do not pass `--lib` alone: the integration tests exercise the public library
+interfaces and must contribute to the measured library-code coverage.
 Pin `cargo-llvm-cov` and provision the matching LLVM tools in the coverage job.
 Any exclusion needs a reviewed explanation; do not exclude difficult auth/error
 paths to meet the threshold. Independently require positive and negative tests
@@ -154,8 +159,10 @@ does not establish compatibility or correctness.
 | Release matrix | Build and execute packaged binaries on every advertised target architecture, and run tests appropriate to its TLS/credential implementation. A cross-build alone is insufficient. |
 
 Pin reusable actions to immutable revisions and tools to exact releases. Test the
-shipping release profile as well as development builds. Required repository checks
-must block merge; do not allow failed checks through blanket `continue-on-error`.
+shipping release profile as well as development builds. Run macOS arm64 and
+x86_64 as separate native jobs; a moving `macos-latest` label alone is not proof
+of both. Required repository checks must block merge; do not allow failed checks
+through blanket `continue-on-error`.
 
 Live tests must be excluded from default offline tests with explicit test metadata.
 Selecting the live suite without its required credentials is a failure, not a

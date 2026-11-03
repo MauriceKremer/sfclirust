@@ -1,6 +1,6 @@
 # Salesforce CLI Rust Reimplementation - Dependency Policy
 #
-# This project is licensed under MIT. All dependencies must use compatible licenses.
+# This project is licensed under Apache-2.0. All dependencies must use compatible licenses.
 #
 # See: https://embarkstudios.github.io/cargo-deny/
 
@@ -13,12 +13,11 @@ db-path = "~/.cargo/advisory-db"
 allow = [
     "MIT",
     "Apache-2.0",
-    "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
     "Unicode-3.0",
-    "Unicode-DFS-2016",
     "CDLA-Permissive-2.0",
+    "Zlib", # zlib-rs is the pure-Rust Deflate backend selected for ZIP reading.
 ]
 
 [bans]
@@ -29,5 +28,3 @@ multiple-versions = "warn"
 # Require dependencies to come from well-known registries only
 unknown-registry = "deny"
 unknown-git = "deny"
-
-

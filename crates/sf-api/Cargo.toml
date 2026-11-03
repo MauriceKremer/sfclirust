@@ -10,7 +10,10 @@ license.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+httpdate.workspace = true
+fastrand.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 thiserror = "1.0"
 tracing.workspace = true
 quick-xml.workspace = true
@@ -18,6 +21,8 @@ quick-xml.workspace = true
 [dev-dependencies]
 wiremock.workspace = true
 tempfile.workspace = true
+proptest.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
 workspace = true

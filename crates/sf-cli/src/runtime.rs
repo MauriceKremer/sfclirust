@@ -216,8 +216,24 @@ impl Default for CancellationToken {
 mod tests {
     use super::*;
 
+    static GLOBAL_STATE_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn lock_global_state() -> std::sync::MutexGuard<'static, ()> {
+        GLOBAL_STATE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn reset_global_state() {
+        SHUTDOWN_REQUESTED.store(false, Ordering::Relaxed);
+        SPAWNED_TASK_COUNT.store(0, Ordering::Relaxed);
+    }
+
     #[test]
     fn operation_context_creation() {
+        let _guard = lock_global_state();
+        reset_global_state();
+
         let ctx = OperationContext::new();
         assert!(!ctx.operation_id.is_empty());
         assert!(!ctx.shutdown_requested);
@@ -233,6 +249,9 @@ mod tests {
 
     #[test]
     fn shutdown_request_affects_context() {
+        let _guard = lock_global_state();
+        reset_global_state();
+
         let ctx = OperationContext::new();
         assert!(!ctx.is_shutdown_requested());
 
@@ -240,14 +259,13 @@ mod tests {
         assert!(ctx.is_shutdown_requested());
         assert!(!ctx.should_continue());
 
-        // Reset for other tests
-        SHUTDOWN_REQUESTED.store(false, Ordering::Relaxed);
+        reset_global_state();
     }
 
     #[test]
     fn spawned_task_counting() {
-        // Reset counter
-        SPAWNED_TASK_COUNT.store(0, Ordering::Relaxed);
+        let _guard = lock_global_state();
+        reset_global_state();
 
         assert_eq!(active_task_count(), 0);
         assert!(!has_active_tasks());
@@ -282,15 +300,20 @@ mod tests {
 
     #[test]
     fn wait_for_tasks_immediate_success() {
-        SPAWNED_TASK_COUNT.store(0, Ordering::Relaxed);
+        let _guard = lock_global_state();
+        reset_global_state();
+
         assert!(wait_for_tasks(100));
     }
 
     #[test]
     fn wait_for_tasks_timeout() {
+        let _guard = lock_global_state();
+        reset_global_state();
+
         SPAWNED_TASK_COUNT.store(1, Ordering::Relaxed);
         assert!(!wait_for_tasks(50)); // Should timeout quickly
-        SPAWNED_TASK_COUNT.store(0, Ordering::Relaxed);
+        reset_global_state();
     }
 
     #[test]
@@ -312,6 +335,9 @@ mod tests {
 
     #[test]
     fn operation_context_default() {
+        let _guard = lock_global_state();
+        reset_global_state();
+
         let ctx = OperationContext::default();
         assert!(!ctx.operation_id.is_empty());
         assert!(ctx.should_continue());

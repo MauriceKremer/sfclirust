@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <result xmlns="urn:metadata.soap.sforce.com">
+      <value>A &amp; B &lt;C&gt;</value>
+    </result>
+  </soapenv:Body>
+</soapenv:Envelope>

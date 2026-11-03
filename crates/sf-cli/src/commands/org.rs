@@ -1,40 +1,18 @@
 //! Org-related commands (list, display, login, logout, etc.)
 
 use crate::cli::{OrgCommand, OrgListArgs, OrgSubcommands};
-use crate::error::CommandOutcome;
-use serde_json::json;
+use crate::error::{CommandError, CommandOutcome};
 
 /// Execute an org subcommand.
 pub async fn execute(cmd: OrgCommand) -> CommandOutcome {
     match cmd.subcommand {
-        OrgSubcommands::List(args) => list(args).await,
+        OrgSubcommands::List(args) => list(args),
     }
 }
 
-/// List all authenticated orgs.
-///
-/// Returns a table (default) or JSON array of org information.
-/// For now, this returns an empty list since we don't have credential storage implemented yet.
-/// This is a placeholder that will be replaced in B20 (state management).
-async fn list(args: OrgListArgs) -> CommandOutcome {
-    // Empty list for now - placeholder until credential store is implemented (B20)
-    let orgs = Vec::<serde_json::Value>::new();
-
-    if args.json {
-        CommandOutcome::Success {
-            result: Some(json!(orgs)),
-            warnings: vec![],
-        }
-    } else {
-        // Human-readable output: table format (placeholder)
-        CommandOutcome::Success {
-            result: Some(json!({
-                "text": "No authenticated orgs found.",
-                "format": "table"
-            })),
-            warnings: vec![],
-        }
-    }
+/// Return an explicit unsupported outcome until credential storage is wired end to end.
+fn list(_args: OrgListArgs) -> CommandOutcome {
+    CommandOutcome::Failure(CommandError::unsupported("sf org list"))
 }
 
 #[cfg(test)]
@@ -42,29 +20,20 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn list_returns_success() {
+    async fn list_is_explicitly_unsupported_until_storage_is_wired() {
         let args = OrgListArgs {
             json: false,
             columns: None,
         };
 
-        let outcome = list(args).await;
-        matches!(outcome, CommandOutcome::Success { .. });
-    }
-
-    #[tokio::test]
-    async fn list_json_returns_array() {
-        let args = OrgListArgs {
-            json: true,
-            columns: None,
-        };
-
-        let outcome = list(args).await;
-        match outcome {
-            CommandOutcome::Success { result, .. } => {
-                assert!(result.as_ref().map(|r| r.is_array()).unwrap_or(false));
+        match list(args) {
+            CommandOutcome::Failure(error) => {
+                assert_eq!(error.code, "UNSUPPORTED_COMMAND");
+                assert_eq!(error.exit_code, 127);
             }
-            _ => panic!("Expected success"),
+            CommandOutcome::Success { .. } => {
+                panic!("an unimplemented org list must not report success")
+            }
         }
     }
 }
