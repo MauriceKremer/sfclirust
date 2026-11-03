@@ -14,7 +14,7 @@ use crate::{
     rest::{SalesforceApiError, SalesforceErrorCategory},
 };
 
-const MAX_ATTEMPTS: usize = 10;
+const MAX_ATTEMPTS: usize = 5;
 const MAX_ELAPSED: Duration = Duration::from_secs(600);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
 type SleepFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
