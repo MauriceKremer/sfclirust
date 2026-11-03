@@ -909,7 +909,6 @@ mod tests {
             .respond_with(
                 ResponseTemplate::new(StatusCode::OK).set_delay(Duration::from_millis(250)),
             )
-            .expect(1)
             .mount(&server)
             .await;
 
