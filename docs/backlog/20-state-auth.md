@@ -103,20 +103,20 @@ contracts. This is not completion of the original user-facing auth acceptance.
 
 **Depends on:** B00-06 and the B20-01/02/03 library interfaces.
 
-- [ ] Implement the actual `keyring` backends for macOS Keychain, Windows
+- [x] Implement the actual `keyring` backends for macOS Keychain, Windows
   Credential Manager, and a documented Linux secret store, including explicit
   platform features/prerequisites. Missing or locked storage is an actionable
   error, never an empty successful list or a plaintext fallback.
-- [ ] Persist only non-secret org identity, aliases/defaults, and secure-store
+- [x] Persist only non-secret org identity, aliases/defaults, and secure-store
   references in native state. Define stable account/org keys and a listing index;
   do not assume the OS store can enumerate every credential.
-- [ ] Define coordinated credential/index updates, rollback or reconciliation
+- [x] Define coordinated credential/index updates, rollback or reconciliation
   after partial writes, atomic state replacement, restrictive permissions, and
   deletion of credentials plus stale aliases/defaults.
-- [ ] Coordinate refresh/update/logout across separate CLI processes, not only
+- [x] Coordinate refresh/update/logout across separate CLI processes, not only
   in-process tasks. Re-read credentials after locking and prevent a concurrent
   refresh from resurrecting credentials after logout.
-- [ ] Preserve an explicitly selected in-memory backend for tests and ephemeral
+- [x] Preserve an explicitly selected in-memory backend for tests and ephemeral
   headless operations. It must not masquerade as durable interactive login.
 
 **Likely files**
