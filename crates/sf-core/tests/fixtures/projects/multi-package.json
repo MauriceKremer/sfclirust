@@ -1,0 +1,16 @@
+{
+  "packageDirectories": [
+    {
+      "path": "packages/core",
+      "default": true,
+      "package": "Core",
+      "versionNumber": "1.0.0.NEXT"
+    },
+    {
+      "path": "packages/ui",
+      "default": false,
+      "package": "UI",
+      "versionNumber": "1.0.0.NEXT"
+    }
+  ]
+}

@@ -7,6 +7,18 @@ ship verified native artifacts.
 modules it actually uses; this package must not block an independently complete
 command from being released.
 
+## Relationship to the B40 developer preview
+
+B20-05, B30-05, and B40-03/04 must provide the minimum executable and pinned
+compatibility evidence for their own commands. B40-05 owns the integrated review,
+native/live walkthrough, and green-CI gate. These requirements are pulled
+forward, not deferred to completion of this package.
+
+B50-02 still owns broader automated oracle installation/comparison and baseline
+upgrade coverage; reuse any preview harness/fixtures rather than duplicating
+them. B50-03 owns public packaging/publication and release integrity. A runnable
+build-from-source B40 preview is not a claim that those release tasks are done.
+
 ## B50-01: Grow command coverage from the inventory
 
 - [ ] Rank first-party workflows by user value, dependency reuse, and risk.

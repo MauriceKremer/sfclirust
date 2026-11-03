@@ -5,6 +5,13 @@
 **Depends on:** B00-01 through B00-04. Command-specific workflows depend on this
 package's output and error contracts.
 
+**Integration status:** the foundation modules below exist, but they do not
+establish end-to-end command readiness. The current entry point does not register
+an OS signal handler, and command flags/output must be connected to the real
+renderer. [B20-05](20-state-auth.md#b20-05-deliver-runnable-authentication-and-org-commands)
+owns that remaining executable integration as the first real workflows arrive;
+B40-05 verifies it again with long-running metadata operations.
+
 ## B10-01: Define typed command outcomes and process exits
 
 - [x] Add shared internal types for command success, warnings, and structured
@@ -89,8 +96,9 @@ test coverage, and architecture notes.
 
 ## B10-04: Add graceful process lifecycle
 
-- [x] Handle termination signals and cancellation without panicking or detaching
-  unfinished tasks.
+- [x] Provide cancellation and shutdown primitives for workflow integration.
+- [ ] Connect real termination signals to running workflows without panicking
+  or detaching unfinished tasks; co-deliver with B20-05's executable integration.
 - [x] Ensure command completion and output flush happen before exit; handle
   broken-pipe behavior intentionally.
 - [x] Keep cancellation separate from rollback claims for remote writes.
@@ -103,7 +111,8 @@ test coverage, and architecture notes.
 
 **Acceptance**
 
-- [x] Signal tests verify process status and cleanup using subprocesses.
+- [ ] Signal tests verify the actual `sf-rust` process status and cleanup during
+  an operation; co-deliver with B20-05, not helper-only lifecycle tests.
 - [x] No spawned task outlives the process contract unnoticed.
 - [x] Long-running operation IDs are preserved by the workflow layer when applicable.
 
@@ -122,4 +131,3 @@ Process lifecycle module with:
 - Output flushing before exit
 - 16 integration tests + 16 unit tests
 - All 62 tests passing
-

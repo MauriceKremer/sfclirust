@@ -55,17 +55,26 @@ compatibility requirements.
 - Test requirements and coverage
 - Exclusions and known limitations
 - Migration notes from upstream
+- A status (`planned`, `in-progress`, `supported`, or `intentionally-unsupported`)
+  that prevents library primitives or parser registration from being mistaken
+  for a verified end-to-end command
 
 **Organization:**
 Commands are grouped by **milestone** (M1, M2, M3, etc.) as defined in
 [technical-architecture.md](../technical-architecture.md#3-milestones).
 
 **Milestone 1 (M1):** Authenticated read workflows
-- Small coherent slice: browser and ephemeral token login, logout, alias/config,
+- Candidate slice: browser and ephemeral token login, logout, alias/config,
   org list/display, and SOQL query
 - Each recorded command must be verified end-to-end with positive/negative tests
 - JSON/exit behavior and credential lifecycle are verified
 - A disposable-org test proves the end-to-end slice
+
+The current inventory entries are candidates, not claims of support. In
+particular, implementing auth/session library primitives does not support
+`sf org login web` or `sf org logout`; their command status stays `planned` until
+the browser, secure credential storage, command output, and lifecycle are wired
+and tested together.
 
 **M1 First Slice Commands:**
 1. `sf org login web` - Browser-based OAuth authentication

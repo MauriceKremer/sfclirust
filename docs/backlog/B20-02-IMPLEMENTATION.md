@@ -1,6 +1,11 @@
 # B20-02: Credential Storage and Secret Types
 
-**Status:** ✅ COMPLETE AND SIGNED OFF
+**Status:** Library foundation implemented; production persistence is not signed off.
+
+The B40 readiness assessment assigns actual OS adapters and cross-process state
+to [B20-04](20-state-auth.md#b20-04-implement-persistent-native-auth-state), and
+headless input/CLI integration to B20-05. The in-memory implementation below
+does not demonstrate a persistent login or an implemented platform backend.
 
 **Commit:** (pending)
 **Date Completed:** 2026-11-02
@@ -9,9 +14,9 @@
 
 B20-02 implements a credential storage system with typed secret wrappers that prevent accidental exposure, platform-agnostic store interface with in-memory and OS-adapter support, and clear error handling for unavailable secure storage.
 
-## Acceptance Criteria (All Verified)
+## Foundation Evidence (Not End-to-End Auth Acceptance)
 
-### ✅ Narrow credential-store interface with OS adapters + test implementation
+### Credential-store interface and test implementation
 - **CredentialBackend trait** — Platform-agnostic interface (store, retrieve, list, delete, exists)
 - **InMemoryStore** — Ephemeral test implementation (no persistence, lost on process exit)
 - **CredentialKey** — Namespacing by org and alias (case-insensitive)

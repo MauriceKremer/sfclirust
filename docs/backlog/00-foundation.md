@@ -109,8 +109,11 @@ with enforceable checks, not just a collection of crates.
 - [x] Add required CI jobs for formatting, all-target Clippy with warnings
   denied, tests/doctests, dependency audit/license policy, and supported-host
   checks. Pin actions/tools and use `--locked`.
-- [ ] Configure repository rules so required CI jobs block merge. A workflow
+- [x] Configure repository rules so required CI jobs block merge. A workflow
   that can be skipped or fail without blocking is not enforcement.
+  `main` requires the `Required CI` aggregate, is strict about the base branch,
+  and applies to administrators. The aggregate depends on every quality,
+  platform, coverage, documentation, and dependency job.
 - [x] Start with OS-native CI runners. Add cross-compilation only as a
   supplemental check, not a replacement for native execution tests.
 
@@ -174,3 +177,60 @@ with enforceable checks, not just a collection of crates.
   intentionally disallowed test fixture/dependency.
 - No policy is described as a legal certification or complete vulnerability
   guarantee.
+
+## B00-06: Restore and enforce the CI baseline
+
+**Depends on:** the existing workspace, executable, and dependency policy.
+This repair task does not depend on the still-open merge-rule item in B00-03;
+it supplies that missing enforcement. Complete it before new B40 feature work.
+
+- [x] Reproduce failures against the current tree and distinguish them from
+  failures on older remote commits. Include the existing strict Clippy errors
+  in `config/store.rs`; fix them without relaxing lint policy. Repeated runtime
+  test failures also exposed parallel interference through shared test globals;
+  serialize those tests and reset their state.
+- [x] Replace the outdated Deny runner and align audit, deny, coverage, compiler,
+  and action pins with the documented versions. Pin actions to immutable
+  revisions and tool installs to exact versions with `--locked`; advisory
+  fetch/parse failures remain failures.
+- [x] Run the required checks locally, including measured 80% library line
+  coverage, locked development/release builds, and checks/tests on the declared
+  MSRV. Coverage is 88.65%; Rust 1.88 check/test/release build passed. Add
+  missing tests rather than lowering thresholds or excluding difficult code
+  paths.
+- [ ] Execute checks/tests natively on Linux x86_64, macOS arm64 and x86_64, and
+  Windows x86_64 MSVC. The workflow now names all four native runner targets;
+  do not treat configuration as executed evidence. Add supported
+  credential-backend configurations as B20-04 lands.
+- [x] Configure the `main` branch to require strict `Required CI` status checks,
+  enforced for administrators, closing B00-03's repository-setting item. The
+  first successful workflow run must still verify that the required context is
+  emitted by GitHub Actions.
+- [ ] Keep this baseline green in each following implementation slice and rerun
+  it at B40-05; do not postpone newly introduced failures to the final review.
+
+**Current state:** local format, strict Clippy, workspace check/test/doc, audit,
+deny, 80% coverage, and Rust 1.88 check/test/release build pass. The main branch
+now requires the new aggregate gate. Remote cross-platform evidence and a passing
+run on the exact committed revision remain open: the current implementation is
+uncommitted, so the prior remote run still tests an older SHA.
+
+**Likely files/settings**
+
+- `.github/workflows/ci.yml`
+- `crates/sf-core/src/config/store.rs` and its focused regression tests
+- `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `deny.toml` as required
+- `docs/development-setup.md`, `docs/testing-strategy.md`
+- Repository branch protection/rulesets
+
+**Acceptance**
+
+- The exact strict developer commands and CI jobs pass without lint allowances,
+  `continue-on-error`, skipped required jobs, or weakened dependency policy.
+- The current local LCOV report shows 88.65% line coverage for the configured
+  `sf-core`/`sf-api` library scope, with integration tests included.
+- Locked checks/tests and release build pass on the declared MSRV, not just the
+  development compiler. Native jobs must identify architectures actually
+  executed.
+- Record the passing remote run and its commit SHA. The active `main` required
+  check must prevent merging a revision if any required job fails.

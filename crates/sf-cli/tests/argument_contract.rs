@@ -14,7 +14,10 @@ fn org_list_basic() {
     cmd.arg("org");
     cmd.arg("list");
 
-    cmd.assert().success();
+    cmd.assert()
+        .failure()
+        .code(127)
+        .stderr(predicate::str::contains("not supported"));
 }
 
 #[test]
@@ -24,7 +27,10 @@ fn org_list_json_flag() {
     cmd.arg("list");
     cmd.arg("--json");
 
-    cmd.assert().success();
+    cmd.assert()
+        .failure()
+        .code(127)
+        .stderr(predicate::str::contains("not supported"));
 }
 
 #[test]
@@ -35,7 +41,10 @@ fn org_list_with_columns() {
     cmd.arg("--columns");
     cmd.arg("Alias,Username");
 
-    cmd.assert().success();
+    cmd.assert()
+        .failure()
+        .code(127)
+        .stderr(predicate::str::contains("not supported"));
 }
 
 #[test]
@@ -96,18 +105,10 @@ fn org_list_json_output_structure() {
     let output = cmd.output().expect("command runs");
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Parse JSON to verify structure
-    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
-        // org list --json should return an array or object with org info
-        assert!(
-            json.is_array() || json.is_object(),
-            "JSON output should be array or object, got: {}",
-            json
-        );
-    } else if !stdout.is_empty() {
-        // If not JSON, it's an error - verify it's on stdout in JSON mode
-        panic!("Expected JSON output in JSON mode: {}", stdout);
-    }
+    assert_eq!(output.status.code(), Some(127));
+    let error = serde_json::from_str::<serde_json::Value>(&stdout)
+        .expect("unsupported command returns a JSON error envelope in JSON mode");
+    assert_eq!(error["code"], "UNSUPPORTED_COMMAND");
 }
 
 #[test]
@@ -133,11 +134,8 @@ fn json_and_columns_flags_together() {
     cmd.arg("--columns");
     cmd.arg("Alias,Username");
 
-    // Should succeed or fail consistently
-    let assert = cmd.assert();
-    let code = assert.get_output().status.code().unwrap_or(-1);
-    assert!(
-        code == 0 || code == 1 || code == 2,
-        "exit code should be 0, 1, or 2"
-    );
+    cmd.assert()
+        .failure()
+        .code(127)
+        .stderr(predicate::str::contains("not supported"));
 }

@@ -17,19 +17,24 @@ fallback to `sf`, and no execution of legacy JavaScript `oclif` plugins.
 
 ## Status today
 
-`sf-rust` is at the **foundation milestone (M0)**: a reproducible, pinned,
-linted, and tested Rust workspace with a minimal executable. No first-party
-command is implemented yet.
+`sf-rust` is transitioning from the **foundation milestone (M0)** to the
+**authenticated read workflows milestone (M1)**. The workspace, toolchain,
+runtime foundations, authenticated API transport primitives, REST/pagination
+models, and safe retry/rate-limit policies are implemented. Project loading and
+the initial ApexClass/ApexTrigger mapping/archive layer also exist. These are
+library capabilities: browser login, persistent OS credentials, and the first
+authenticated CLI workflows are not yet available. `org list` currently returns
+an explicit unsupported error.
 
 | Area | State |
 |---|---|
 | Cargo workspace, pinned toolchain, MSRV, `Cargo.lock` | In place |
 | Enforced lints (`unsafe` forbidden, no `unwrap`/`expect`/`dbg`) | In place |
-| CI: fmt, clippy, test, doc, audit, deny, native-host check | In place |
+| CI: fmt, clippy, test, doc, audit, deny, coverage, native-host check | Defined; B00-06 repairs and verifies failures/enforcement |
 | Pinned compatibility baseline + command inventory | In place |
 | Minimal `sf-rust` binary (`--help`, `--version`, offline help) | In place, verified |
-| First-party commands (M1+ slice) | **Not started** |
-| Required CI as *blocking* merge rules | Open (last M0 item) |
+| First-party commands (M1+ slice) | **In progress** |
+| Required CI as *blocking* merge rules | `main` requires the strict `Required CI` aggregate; passing remote run pending |
 
 Verified in this working tree:
 
@@ -38,7 +43,7 @@ $ cargo run -p sf-cli --bin sf-rust -- --version
 sf-rust 0.1.0
 
 $ cargo test --workspace --locked
-# 4 smoke tests pass; no credentials or network required
+# Ordinary tests use isolated state; no Salesforce credentials required
 ```
 
 The normative design documents describe *requirements to satisfy*, not gates that
@@ -161,6 +166,16 @@ workflow:
 Progress is measured against the pinned inventory, not the number of registered
 command names. The ordered work that produces these milestones lives in
 [`docs/backlog`](docs/backlog/README.md).
+
+### Next delivery checkpoint: runnable B40 preview
+
+The [revised B40 plan](docs/backlog/README.md#b40-delivery-target-runnable-developer-preview)
+first repairs CI, then closes secure credential storage and real auth/org/query
+command integration before completing deploy/retrieve. After implementation,
+B40-05 requires a combined review, a build-from-source login-to-logout walkthrough
+(including query and metadata operations), and green required CI on the delivered
+revision. Until that gate passes, this remains an implementation target, not an
+available command set or a public packaged release.
 
 ---
 

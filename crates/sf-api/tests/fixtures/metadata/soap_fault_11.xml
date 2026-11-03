@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:sf="urn:metadata.soap.sforce.com">
+  <soapenv:Body>
+    <soapenv:Fault>
+      <faultcode>sf:INVALID_TYPE</faultcode>
+      <faultstring>Metadata type is not supported</faultstring>
+      <detail><message>Synthetic fault detail</message></detail>
+    </soapenv:Fault>
+  </soapenv:Body>
+</soapenv:Envelope>

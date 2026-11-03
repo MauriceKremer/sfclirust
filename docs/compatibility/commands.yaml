@@ -14,6 +14,15 @@
 
 ## Milestone 1: Authenticated read workflows
 ## Scope: Browser and ephemeral token login, logout, alias/config, org list/display, SOQL query.
+#
+# Current native auth scope: browser authorization-code OAuth with mandatory PKCE
+# S256, state-validated callback on an ephemeral 127.0.0.1 listener, and bounded
+# callback timeout/cancellation. These library capabilities do not make a CLI
+# command supported: all command entries below remain planned until credential
+# storage, command wiring, and pinned JSON/exit tests pass.
+# Ephemeral headless credential injection remains a separate planned operation;
+# its upstream command contract is inventoried below, but it is not implemented
+# as a native command or represented as supported.
 
 # Category: Authentication - Browser-based OAuth login
 - id: org-login-web
@@ -23,12 +32,19 @@
   category: "bundled"
   owner: "salesforcecli/plugin-auth"
   source_url: "https://github.com/salesforcecli/plugin-auth/tree/6.0.4/src/commands/org/login/web.ts"
+  aliases: ["force:auth:web:login", "auth:web:login"]
+  status: planned
+  native_implementation:
+    flow: "OAuth authorization code with mandatory PKCE S256"
+    callback: "Ephemeral listener bound to IPv4 loopback only"
+    client_id: "Explicit client ID required by the native flow"
+    command_status: "Not supported until browser launch and secure persistence are wired"
   
   purpose: "Authenticate to a Salesforce org using browser-based OAuth flow."
   
   default_output: "JSON object containing authenticated org details."
   
-  # Command-line flags (non-exhaustive; record actual upstream values)
+  # Flags captured from plugin-auth 6.0.4, including aliases and dependencies.
   flags:
     - name: "--browser"
       char: "-b"
@@ -42,6 +58,7 @@
       type: "string"
       summary: "OAuth client ID (overrides plugin defaults)"
       optional: true
+      aliases: ["--clientid"]
     
     - name: "--instance-url"
       char: "-r"
@@ -55,17 +72,47 @@
       type: "string"
       summary: "Alias for the authenticated org"
       optional: true
+      aliases: ["--setalias"]
     
     - name: "--set-default"
       char: "-s"
       type: "boolean"
       summary: "Set as the default org"
       optional: true
+      aliases: ["--setdefaultusername"]
     
     - name: "--set-default-dev-hub"
       char: "-d"
       type: "boolean"
       summary: "Set as the default Dev Hub org"
+      optional: true
+      aliases: ["--setdefaultdevhubusername", "--setdefaultdevhub", "-v"]
+
+    - name: "--no-prompt"
+      char: "-p"
+      type: "boolean"
+      optional: true
+      hidden: true
+      aliases: ["--noprompt"]
+
+    - name: "--client-app"
+      char: "-c"
+      type: "string"
+      optional: true
+      depends_on: ["--username"]
+
+    - name: "--username"
+      type: "string"
+      optional: true
+      depends_on: ["--client-app"]
+
+    - name: "--scopes"
+      type: "string"
+      optional: true
+      validation: "Must not contain commas"
+
+    - name: "--loglevel"
+      type: "string"
       optional: true
   
   # Exit codes and error conditions
@@ -78,7 +125,7 @@
       note: "Browser closed, network error, OAuth denial, etc."
     
     - code: 2
-      meaning: "Configuration error (missing client-id, invalid instance-url)"
+      meaning: "CLI argument parsing or validation failure"
   
   # Credential and state side effects
   side_effects:
@@ -95,6 +142,9 @@
     - "Alias must match stored org identity for future commands"
     - "Default org selection persists across CLI invocations"
     - "Deprecated aliases (force:auth:web:login, auth:web:login) must still work if supported"
+    - "--client-app requires --username and --username requires --client-app"
+    - "--scopes accepts a space-delimited scope string and rejects comma-separated input"
+    - "Container mode fails explicitly rather than attempting an interactive browser login"
   
   # Dependencies and prerequisites
   dependencies:
@@ -129,6 +179,88 @@
 
 ---
 
+# Category: Authentication - Ephemeral access-token login
+- id: org-login-access-token
+  command: "sf org login access-token"
+  plugin: "@salesforce/plugin-auth"
+  plugin_version: "6.0.4"
+  category: "bundled"
+  owner: "salesforcecli/plugin-auth"
+  source_url: "https://github.com/salesforcecli/plugin-auth/tree/6.0.4/src/commands/org/login/access-token.ts"
+  aliases: ["force:auth:accesstoken:store", "auth:accesstoken:store"]
+  status: planned
+
+  purpose: "Authenticate using an explicitly supplied Salesforce access token."
+
+  flags:
+    - name: "--instance-url"
+      char: "-r"
+      type: "url"
+      required: true
+      aliases: ["--instanceurl"]
+
+    - name: "--set-default"
+      char: "-s"
+      type: "boolean"
+      optional: true
+      aliases: ["--setdefaultusername"]
+
+    - name: "--set-default-dev-hub"
+      char: "-d"
+      type: "boolean"
+      optional: true
+      aliases: ["--setdefaultdevhub", "--setdefaultdevhubusername", "-v"]
+
+    - name: "--alias"
+      char: "-a"
+      type: "string"
+      optional: true
+      aliases: ["--setalias"]
+
+    - name: "--no-prompt"
+      char: "-p"
+      type: "boolean"
+      optional: true
+      aliases: ["--noprompt"]
+
+    - name: "--loglevel"
+      type: "string"
+      optional: true
+
+  token_input:
+    format: '"<org id>!<access token>"'
+    precedence:
+      - "SF_ACCESS_TOKEN"
+      - "SFDX_ACCESS_TOKEN"
+      - "Piped stdin when stdin is not a TTY"
+      - "Interactive secret prompt when stdin is a TTY and --no-prompt is absent"
+    stdin_timeout_seconds: 60
+
+  side_effects:
+    - "Upstream stores auth fields and applies alias/default-org settings"
+    - "The native headless source is ephemeral and must not persist the token or pass it to a child process"
+
+  contracts:
+    - "Reject access tokens that do not match the documented org-id/token format"
+    - "A non-TTY stdin read is bounded and removes listeners on timeout"
+    - "Do not prompt when --no-prompt is set"
+    - "Do not display or log access-token contents"
+    - "Native command remains planned until it can authenticate end to end using an explicitly ephemeral source"
+
+  exit_codes:
+    - code: 0
+      meaning: "Authentication information accepted and stored"
+    - code: 1
+      meaning: "Invalid token, unavailable input, or authentication failure"
+    - code: 2
+      meaning: "Invalid flags or instance URL"
+
+  migration_note: |
+    Upstream behavior is pinned to plugin-auth 6.0.4. Native headless auth is
+    intentionally ephemeral and does not reproduce upstream persistent storage.
+
+---
+
 # Category: Authentication - Logout
 - id: org-logout
   command: "sf org logout"
@@ -137,6 +269,10 @@
   category: "bundled"
   owner: "salesforcecli/plugin-auth"
   source_url: "https://github.com/salesforcecli/plugin-auth/tree/6.0.4/src/commands/org/logout.ts"
+  aliases: ["force:auth:logout", "auth:logout"]
+  status: planned
+  native_implementation:
+    remote_revocation_failure: "Attempt local credential deletion and report revocation failure"
   
   purpose: "Revoke authentication and delete stored credentials for an org."
   
@@ -150,39 +286,56 @@
       type: "string"
       summary: "Org alias or username to log out"
       optional: true
-      note: "If omitted, logs out default org"
+      aliases: ["--targetusername", "-u"]
+      note: "Uses configured default if available; otherwise orgs may be selected interactively or by --all/JSON behavior"
+
+    - name: "--client-app"
+      char: "-c"
+      type: "string"
+      summary: "Remove a client-app authorization from the target org"
+      optional: true
+      depends_on: ["--target-org"]
     
     - name: "--all"
+      char: "-a"
       type: "boolean"
       summary: "Log out all authenticated orgs"
       optional: true
       note: "Mutually exclusive with --target-org"
     
     - name: "--no-prompt"
+      char: "-p"
       type: "boolean"
       summary: "Do not prompt for confirmation"
+      optional: true
+      aliases: ["--noprompt"]
+
+    - name: "--loglevel"
+      type: "string"
       optional: true
   
   exit_codes:
     - code: 0
-      meaning: "Logout successful"
+      meaning: "Logout completed, no auths found, or no auths selected"
     
     - code: 1
-      meaning: "No org to log out or operation cancelled"
+      meaning: "Authentication, storage, confirmation, or unresolved-target failure"
     
     - code: 2
-      meaning: "Configuration error (invalid org alias)"
+      meaning: "CLI argument parsing or validation failure"
   
   side_effects:
-    - "Deletes stored credentials for the specified org"
-    - "Revokes OAuth tokens with Salesforce if possible"
+    - "Removes stored authentication for the selected org"
+    - "A client-app-only logout removes the named client app authorization"
     - "Removes org from alias configuration if aliased"
     - "Updates default org if the logged-out org was the default"
   
   contracts:
-    - "Logout must remove ALL stored credentials for the org"
+    - "With --no-prompt and no resolved target org or --all, fail rather than prompt"
+    - "With JSON output and no resolved target org or --all, fail rather than prompt"
+    - "With no org found, return an empty result; an explicitly unresolved --target-org is an error"
+    - "Logout removes stored auth; remote revocation is a distinct lifecycle action"
     - "Subsequent commands using this org must fail with 'not authenticated'"
-    - "Alias remains in config but points to no valid credentials"
   
   dependencies:
     - "@salesforce/core" # AuthInfo
@@ -210,23 +363,54 @@
   category: "bundled"
   owner: "salesforcecli/plugin-org"
   source_url: "https://github.com/salesforcecli/plugin-org/tree/7.0.13/src/commands/org/list.ts"
+  aliases: ["force:org:list"]
+  status: planned
+  native_implementation:
+    command_status: "Returns an explicit unsupported-command error until persistent storage is wired"
   
   purpose: "List all authenticated orgs with their aliases, usernames, and status."
   
   default_output: |
-    Table with columns: Alias, Username, Org ID, Instance URL, Status
-    JSON output available with --json flag.
+    JSON object fields: other, sandboxes, nonScratchOrgs, devHubs, scratchOrgs.
+    Human output prints grouped org tables and a default-org legend.
+    Global JSON mode returns the object shape; it is not a --columns table.
   
   flags:
-    - name: "--json"
+    - name: "--verbose"
       type: "boolean"
-      summary: "Output as JSON"
       optional: true
-    
-    - name: "--columns"
+
+    - name: "--all"
+      type: "boolean"
+      optional: true
+      note: "Include expired and deleted scratch orgs"
+
+    - name: "--clean"
+      type: "boolean"
+      optional: true
+      note: "Remove expired scratch-org authorizations; prompts unless --no-prompt is set"
+
+    - name: "--no-prompt"
+      char: "-p"
+      type: "boolean"
+      optional: true
+      aliases: ["--noprompt"]
+      relationships:
+        - requires: "--clean"
+
+    - name: "--skip-connection-status"
+      type: "boolean"
+      optional: true
+      aliases: ["--skipconnectionstatus"]
+
+    - name: "--loglevel"
       type: "string"
-      summary: "CSV of columns to display"
       optional: true
+
+    - name: "--json"
+      type: "global boolean"
+      optional: true
+      note: "Inherited command JSON output selection"
   
   exit_codes:
     - code: 0
@@ -236,12 +420,15 @@
       meaning: "Error reading org configuration"
   
   side_effects:
-    - "None; read-only operation"
+    - "Read-only unless --clean removes expired scratch-org auth records"
   
   contracts:
-    - "Output must include all authenticated orgs"
-    - "Must indicate which org is the default"
-    - "JSON schema consistent across invocations"
+    - "Sorts org groups and marks configured default orgs/Dev Hubs"
+    - "Without --all, excludes expired and deleted scratch orgs"
+    - "--all includes expired and deleted scratch orgs"
+    - "--clean removes expired scratch-org auth records"
+    - "JSON output has stable group keys and omits no groups"
+    - "--no-prompt is valid only with --clean"
   
   dependencies:
     - "@salesforce/core" # AuthInfo, ConfigFile
@@ -254,8 +441,8 @@
     - "Negative: list when no orgs authenticated (exit code 0, empty output)"
   
   migration_note: |
-    Ported from upstream plugin-org. This is a pure read operation and 
-    no credential side effects. Essential for verifying authentication state.
+    Ported from upstream plugin-org. Normally read-only, with expired scratch-org
+    cleanup as an explicit state-changing option.
 
 ---
 
@@ -267,23 +454,39 @@
   category: "bundled"
   owner: "salesforcecli/plugin-org"
   source_url: "https://github.com/salesforcecli/plugin-org/tree/7.0.13/src/commands/org/display.ts"
+  aliases: ["force:org:display"]
+  status: planned
   
   purpose: "Display details of a Salesforce org (instance URL, version, ID, etc.)."
   
   default_output: |
-    Table with org metadata: Instance URL, Org ID, Edition, API version, 
-    Salesforce version, etc. JSON available with --json.
+    JSON fields include id, devHubId, apiVersion, accessToken (redacted),
+    instanceUrl, username, clientId, alias, connectedStatus, clientApps, and
+    applicable scratch-org metadata. Human output is an alphabetized
+    Org Description table. Undefined fields are omitted.
   
   flags:
     - name: "--target-org"
       char: "-o"
       type: "string"
       summary: "Org alias or username"
+      required: true
+      aliases: ["--targetusername", "-u"]
+
+    - name: "--api-version"
+      type: "string"
       optional: true
-      note: "If omitted, uses default org"
+
+    - name: "--verbose"
+      type: "boolean"
+      optional: true
+
+    - name: "--loglevel"
+      type: "string"
+      optional: true
     
     - name: "--json"
-      type: "boolean"
+      type: "global boolean"
       summary: "Output as JSON"
       optional: true
   
@@ -298,21 +501,23 @@
       meaning: "Invalid org alias"
   
   side_effects:
-    - "Makes API request to org to fetch current details"
-    - "No writes to credential store"
+    - "Refreshes auth and may update the stored session"
+    - "Queries the org and its Dev Hub for connection/scratch-org details"
   
   contracts:
-    - "Output must include Instance URL, Org ID, Edition, Salesforce API version"
-    - "JSON schema must be consistent"
-    - "Command must fail if org is not authenticated"
+    - "Requires a resolved target org; it does not default the target flag"
+    - "JSON omits absent/undefined fields and redacts access token, password, and verbose auth URL values"
+    - "Returns identity, instance, API version, connection status, aliases, and applicable scratch-org metadata"
+    - "An auth refresh failure warns and still displays available local auth details"
+    - "The deprecated alias force:org:display remains available"
   
   dependencies:
     - "@salesforce/core" # AuthInfo, Connection
     - "@salesforce/sf-plugins-core" # SfCommand, ux
   
   salesforce_api:
-    - endpoint: "/services/data/" (getVersion)
-    - endpoint: "/services/data/org/limits" (getOrgLimits)
+    - endpoint: "/services/data/ (getVersion)"
+    - endpoint: "/services/data/org/limits (getOrgLimits)"
     - version: "Varies by org; typically 50.0+"
   
   testing:
@@ -336,6 +541,7 @@
   category: "bundled"
   owner: "salesforcecli/plugin-data"
   source_url: "https://github.com/salesforcecli/plugin-data/tree/5.1.26/src/commands/data/query.ts"
+  status: planned
   
   purpose: "Execute a SOQL query against a Salesforce org and return results."
   
@@ -440,13 +646,18 @@
 # Placeholder for future slices (not implemented in M1)
 # Example structure for M2 and beyond:
 #
+# B40-02 establishes a deliberately narrower conversion scope for the first
+# deploy/retrieve workflows: ApexClass and ApexTrigger with concrete members.
+# This is not a supported command entry or a claim of general metadata parity.
+# B40-03/B40-04 must inventory complete command contracts before CLI work.
+#
 # - id: project-deploy-start
 #   command: "sf project deploy start"
 #   plugin: "@salesforce/plugin-deploy-retrieve"
 #   plugin_version: "4.2.28"
 #   category: "bundled"
 #   purpose: "Deploy source code to Salesforce org"
-#   note: "M2 milestone; requires project/package parsing and async workflow"
+#   note: "Planned; native conversion initially supports ApexClass and ApexTrigger only"
 #
 # - id: apex-run
 #   command: "sf apex run"

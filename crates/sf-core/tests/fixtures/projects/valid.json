@@ -1,0 +1,9 @@
+{
+  "name": "project-context-test",
+  "packageDirectories": [
+    {
+      "path": "force-app"
+    }
+  ],
+  "sourceApiVersion": "63.0"
+}
