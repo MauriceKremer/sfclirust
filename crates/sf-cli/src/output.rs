@@ -13,22 +13,29 @@ use std::io;
 /// - Otherwise, human-readable output goes to stdout.
 /// - Diagnostics and non-JSON errors go to stderr.
 /// - Always ensures exactly one JSON document (when JSON mode is active).
-pub fn render_outcome(outcome: &CommandOutcome) -> io::Result<i32> {
-    let json_mode = std::env::var("SF_CONTENT_TYPE")
-        .map(|v| v.to_uppercase() == "JSON")
-        .unwrap_or(false);
+///
+/// `force_json` (the global `--json` flag) selects JSON output in addition to
+/// `SF_CONTENT_TYPE=JSON`.
+pub fn render_outcome_as(outcome: &CommandOutcome, force_json: bool) -> io::Result<i32> {
+    let json_mode = force_json
+        || std::env::var("SF_CONTENT_TYPE")
+            .map(|v| v.to_uppercase() == "JSON")
+            .unwrap_or(false);
 
     let handler = BrokenPipeHandler::new();
 
     match outcome {
-        CommandOutcome::Success {
-            result,
-            warnings: _,
-        } => {
+        CommandOutcome::Success { result, warnings } => {
             if json_mode {
                 if let Some(result) = result {
-                    let json_str = serde_json::to_string(result)
-                        .unwrap_or_else(|_| r#"{"status":"success"}"#.to_string());
+                    // Upstream-compatible envelope: status, result, warnings.
+                    let envelope = serde_json::json!({
+                        "status": 0,
+                        "result": result,
+                        "warnings": warnings,
+                    });
+                    let json_str = serde_json::to_string(&envelope)
+                        .unwrap_or_else(|_| r#"{"status":0}"#.to_string());
                     // Ensure exactly one JSON document on stdout
                     println!("{}", json_str);
                     handler.check_and_exit_if_broken();
@@ -39,6 +46,10 @@ pub fn render_outcome(outcome: &CommandOutcome) -> io::Result<i32> {
                     render_human_readable(result)?;
                     handler.check_and_exit_if_broken();
                 }
+                // Warnings go to stderr so stdout stays the command's result.
+                for warning in warnings {
+                    eprintln!("Warning: {warning}");
+                }
             }
             Ok(0)
         }
@@ -46,14 +57,28 @@ pub fn render_outcome(outcome: &CommandOutcome) -> io::Result<i32> {
         CommandOutcome::Failure(err) => {
             if json_mode {
                 // JSON errors go to stdout as a single JSON document with a nonzero exit code
-                let json = serde_json::to_string(err).unwrap_or_else(|_| {
-                    serde_json::json!({
-                        "status": "error",
-                        "code": "INTERNAL_ERROR",
-                        "message": "Failed to serialize error"
+                // Upstream-compatible error fields: name, exitCode and a numeric
+                // status equal to the exit code, alongside the native code.
+                let json = serde_json::to_value(err)
+                    .map(|mut value| {
+                        if let Some(map) = value.as_object_mut() {
+                            map.insert("name".to_string(), err.code.clone().into());
+                            map.insert("exitCode".to_string(), err.exit_code.into());
+                            map.insert("status".to_string(), err.exit_code.into());
+                            // Upstream always reports a warnings array on errors.
+                            map.entry("warnings")
+                                .or_insert_with(|| serde_json::Value::Array(vec![]));
+                        }
+                        value.to_string()
                     })
-                    .to_string()
-                });
+                    .unwrap_or_else(|_| {
+                        serde_json::json!({
+                            "status": "error",
+                            "code": "INTERNAL_ERROR",
+                            "message": "Failed to serialize error"
+                        })
+                        .to_string()
+                    });
                 println!("{}", json);
                 handler.check_and_exit_if_broken();
             } else {
@@ -149,7 +174,7 @@ mod tests {
             warnings: vec![],
         };
 
-        let exit_code = render_outcome(&outcome).expect("render succeeds");
+        let exit_code = render_outcome_as(&outcome, false).expect("render succeeds");
         assert_eq!(exit_code, 0);
     }
 
@@ -166,7 +191,7 @@ mod tests {
             "something went wrong",
         ));
 
-        let exit_code = render_outcome(&outcome).expect("render succeeds");
+        let exit_code = render_outcome_as(&outcome, false).expect("render succeeds");
         assert_eq!(exit_code, 1);
     }
 

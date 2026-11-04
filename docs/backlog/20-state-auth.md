@@ -144,6 +144,52 @@ contracts. This is not completion of the original user-facing auth acceptance.
 **Depends on:** B20-04, B10's parser/output/runtime foundations, and B30-01.
 This task owns the production CLI integration still missing from those foundations.
 
+**Progress (partial, task remains open):**
+
+- `org list`, `org logout`, `org display` and the browser login run against native
+  state (org index plus credential backend). `SF_RUST_CREDENTIAL_BACKEND=memory`
+  selects the in-memory test backend. Global `--json` is wired.
+- `org list` reports every org under `nonScratchOrgs` because the index records no
+  org type. `org logout` requires `--no-prompt` (no prompt support) and deletes
+  locally without remote revocation, with a warning.
+- `org display` requires `--target-org` (alias, username, or org ID), redacts the
+  access token, refreshes when `SF_RUST_CLIENT_ID` is set, checks the connection with
+  one `/services/data/` request, and warns while still showing local details when
+  that fails.
+- Browser login (`crates/sf-cli/src/commands/org_login.rs`): `--alias/-a`,
+  `--set-default/-s`, `--client-id/-i` (or `SF_RUST_CLIENT_ID`), `--instance-url/-r`.
+  Loopback PKCE callback, identity lookup, secure persistence, one stored login per
+  org and username. Requires a connected app with callback
+  `http://localhost:1717/oauth/callback` (port via `--callback-port` or
+  `SF_RUST_CALLBACK_PORT`) and `api refresh_token` scopes; see the README. Test knobs:
+  `SF_RUST_NO_BROWSER`, `SF_RUST_LOGIN_TIMEOUT_SECS`. TLS-inspecting proxies: opt-in
+  `SF_RUST_CA_BUNDLE` (or `NODE_EXTRA_CA_CERTS`) adds trusted roots; verification is
+  never disabled. Verified live against a sandbox: login, `org list`, and a connected
+  `org display`. Token refresh is not yet verified against a real expired token.
+- Ephemeral token input (`sf-core` `auth/ephemeral.rs`): `SF_ACCESS_TOKEN` (or
+  `SFDX_ACCESS_TOKEN`) as `<org id>!<token>` plus `SF_RUST_INSTANCE_URL`. Wired into
+  `org display` only; it never opens the credential store or index, and the target
+  must be the token's org ID.
+- The process entry point now registers SIGINT/SIGTERM and drops the running
+  command, reporting `INTERRUPTED` with exit 130/143 (this closes loopback
+  listeners). Commands that mutate remote state must record recovery information
+  before they become interruptible (B40-03).
+- Not registered: `org list --verbose/--clean`, `org logout --client-app`, login
+  flags `--browser`, `--set-default-dev-hub`, `--scopes`, `--client-app`, and
+  `org login access-token`.
+- Executable tests: `tests/org_commands.rs`, `tests/org_login.rs` (timeout, denial,
+  forged state, SIGINT, SIGTERM, missing client ID, bad URLs, display selection and
+  headless refusal). The token exchange and a connected `org display` are not tested
+  end to end; they need a real Salesforce origin (live run).
+- Also done: `org display` falls back to the default org; `org login`/`org logout`
+  refuse to run with an ephemeral token; JSON success envelope
+  `{status,result,warnings}` and error fields `name`/`exitCode`/`status` match the
+  pinned upstream; empty-state fixtures from `@salesforce/cli@2.158.4` are compared
+  in `tests/oracle_fixtures.rs`; `cargo deny check` and `cargo audit` pass.
+- Not done: non-empty org fixtures (upstream needs the OS keychain), the opt-in live run,
+  the inventory/README updates, and stdin token input. Inventory entries stay
+  `planned`.
+
 - [ ] Recheck the selected `org login web`, `org list`, `org display`, and
   `org logout` contracts against the pinned upstream source/oracle before coding.
   Define supported flags, aliases, defaults, JSON/exit behavior, prompts, and

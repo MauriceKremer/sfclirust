@@ -82,6 +82,75 @@ Ordinary development and tests require **no** Salesforce credentials and no
 network access. Live-org suites are opt-in and use disposable, least-privilege
 orgs.
 
+### Authentication commands (developer preview, not yet `supported`)
+
+Browser login, `org list`, `org display`, and `org logout` run natively but are
+still `planned` in the compatibility inventory until pinned comparison and live
+evidence exist (see `docs/backlog/20-state-auth.md`).
+
+- Browser login needs your own OAuth app in the target org (see
+  [Creating the OAuth app](#creating-the-oauth-app-for-browser-login)). Pass its
+  Consumer Key with `--client-id` or `SF_RUST_CLIENT_ID`. Tokens go to the OS secure
+  store; if it is unavailable the command fails (there is no plaintext fallback).
+- The callback listens on port 1717 by default (the upstream CLI's port). Override it
+  with `--callback-port` or `SF_RUST_CALLBACK_PORT` and register the matching URL.
+- Headless: set `SF_ACCESS_TOKEN='<org id>!<token>'` and `SF_RUST_INSTANCE_URL`.
+  Nothing is persisted, and the target org must be the token's org ID. Currently
+  only `org display` reads it.
+- Behind a TLS-inspecting proxy (for example Netskope), requests fail with an
+  untrusted-issuer error until you trust the proxy's CA. Point `SF_RUST_CA_BUNDLE` (or
+  `NODE_EXTRA_CA_CERTS`, which the upstream CLI also honors) at a PEM file with that CA.
+  Certificate verification is never disabled. On macOS, export the CA with
+  `security find-certificate -a -c "<CA name>" -p /Library/Keychains/System.keychain`.
+- `org logout` needs `--no-prompt` and removes local credentials only; it does not
+  revoke tokens remotely.
+- `SF_RUST_STATE_DIR` relocates native state. `SF_RUST_CREDENTIAL_BACKEND=memory`
+  is for tests only. Ctrl-C or SIGTERM stops a command with exit 130 or 143.
+
+#### Creating the OAuth app for browser login
+
+Browser login uses the OAuth authorization-code flow with PKCE and a loopback
+callback. It is a public client: it sends no client secret. Create the app once per
+org (use a disposable org for development). These settings were used for a working
+login with an External Client App; the same values apply to a classic Connected
+App where your org still allows creating one.
+
+1. In Setup, open **External Client Apps Manager** and create a new external client
+   app (name and contact email are free-form).
+2. Enable OAuth and set:
+   - **Callback URL:** `http://localhost:1717/oauth/callback` (exactly; no
+     trailing slash). Salesforce redirects to the registered URL, not to the URL
+     the CLI sends, so the port must be registered. If you use another port, pass
+     `--callback-port <port>` and register that port instead.
+   - **OAuth scopes:** `api` (Manage user data via APIs) and `refresh_token,
+     offline_access` (Perform requests at any time). Nothing else is requested.
+   - **Flow enablement:** turn on **Enable Authorization Code and Credentials
+     Flow**. Leave Client Credentials, Device, JWT Bearer and Token Exchange off.
+   - **Security:** require Proof Key for Code Exchange (PKCE). Turn off **Require
+     secret for web server flow** and **Require secret for refresh token flow**.
+3. Save, then on the **Policies** tab allow the users who will log in (for example
+   "All users may self-authorize" in a disposable org, or an assigned profile or
+   permission set).
+4. Copy the **Consumer Key**. It is not a secret, but keep it in an environment
+   variable rather than a committed file. The Consumer Secret is not used.
+5. Run the browser login with that key. For a sandbox or My Domain org, also pass
+   `--instance-url` with the org's own host:
+
+   ```bash
+   export SF_RUST_CLIENT_ID='<consumer key>'
+   sf-rust org login web --alias dev --set-default
+   ```
+
+Troubleshooting:
+
+| Symptom | Likely cause |
+|---|---|
+| `invalid_client_id` | Wrong login host for the org that owns the app (pass `--instance-url`), key copied incorrectly, or the new app has not propagated yet (wait a few minutes). |
+| `redirect_uri_mismatch` | The registered callback does not match `http://localhost:<port>/oauth/callback`, including the port. |
+| OAuth error 1800 | The app is not fully set up: authorization-code flow not enabled, or a required setting missing. |
+| Browser shows "localhost refused to connect" | The login command is not running or already ended (timeout, Ctrl-C), or another process holds the port. Start a fresh run and use only the tab it opens. |
+| Port already in use | Another login is running on the same port; wait for it or choose `--callback-port`. |
+
 ---
 
 ## Architecture

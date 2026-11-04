@@ -1,0 +1,1 @@
+{"exit":1,"body":{"name":"NoOrgSpecifiedWithNoPromptError","message":"You must specify a target-org (or default target-org config is set) or use --all flag when using the --no-prompt flag.","exitCode":1,"code":"NoOrgSpecifiedWithNoPromptError","status":1,"warnings":[]}}

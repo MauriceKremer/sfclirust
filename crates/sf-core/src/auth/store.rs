@@ -4,8 +4,24 @@
 //! from the OS secure store or in-memory test implementation.
 
 use crate::auth::credentials::{Credential, CredentialKey};
+use crate::auth::secret::Secret;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, UNIX_EPOCH};
+
+/// What the OS secure store holds for one login: the whole session, so a later
+/// process can refresh it. Stored as a single JSON secure-store item.
+#[derive(Serialize, Deserialize)]
+struct StoredPayload {
+    access_token: String,
+    refresh_token: Option<String>,
+    /// Access-token expiry as seconds since the Unix epoch.
+    expires_at: Option<u64>,
+    token_type: String,
+    username: String,
+    instance_url: String,
+}
 
 /// Result type for credential store operations.
 pub type CredStoreResult<T> = Result<T, CredStoreError>;
@@ -161,18 +177,59 @@ impl OsSecureStore {
     }
 
     /// Format a credential key for storage in the OS keyring.
+    ///
+    /// Lowercased like `CredentialKey`, so a credential stored with the org ID as
+    /// Salesforce returned it is found again by a case-insensitive lookup.
     fn format_credential_key(org_id: &str, alias: &str) -> String {
-        format!("sf-rust:{}:{}", org_id, alias)
+        format!("sf-rust:{}:{}", org_id.to_lowercase(), alias.to_lowercase())
+    }
+
+    fn encode_payload(credential: &Credential) -> CredStoreResult<String> {
+        let expires_at = credential
+            .expires_at()
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+        let payload = StoredPayload {
+            access_token: credential.token().expose().to_string(),
+            refresh_token: credential.refresh_token().map(|s| s.expose().to_string()),
+            expires_at,
+            token_type: credential.token_type.clone(),
+            username: credential.username.clone(),
+            instance_url: credential.instance_url.clone(),
+        };
+        serde_json::to_string(&payload)
+            .map_err(|_| CredStoreError::StoreFailed("Failed to encode credential".to_string()))
+    }
+
+    fn decode_payload(key: &CredentialKey, raw: &str) -> CredStoreResult<Credential> {
+        let payload: StoredPayload = serde_json::from_str(raw).map_err(|_| {
+            CredStoreError::RetrieveFailed(
+                "Stored credential is unreadable; log in again to replace it".to_string(),
+            )
+        })?;
+        Ok(Credential::new(
+            key.org_id().to_string(),
+            key.alias().to_string(),
+            Secret::new(payload.access_token),
+            payload.token_type,
+        )
+        .with_identity(payload.username, payload.instance_url)
+        .with_refresh_token(payload.refresh_token.map(Secret::new))
+        .with_expiry(
+            payload
+                .expires_at
+                .map(|secs| UNIX_EPOCH + Duration::from_secs(secs)),
+        ))
     }
 }
 
 impl CredentialBackend for OsSecureStore {
     fn store(&self, credential: Credential) -> CredStoreResult<()> {
         let key = Self::format_credential_key(&credential.org_id, &credential.alias);
-        let token_str = credential.token().expose();
+        let payload = Self::encode_payload(&credential)?;
 
         keyring::Entry::new(&self.service, &key)
-            .and_then(|entry| entry.set_password(token_str))
+            .and_then(|entry| entry.set_password(&payload))
             .map_err(|e| {
                 CredStoreError::StoreFailed(format!("Failed to store credential: {}", e))
             })?;
@@ -183,20 +240,16 @@ impl CredentialBackend for OsSecureStore {
     fn retrieve(&self, key: &CredentialKey) -> CredStoreResult<Credential> {
         let keyring_key = Self::format_credential_key(key.org_id(), key.alias());
 
-        let token_str = keyring::Entry::new(&self.service, &keyring_key)
+        let raw = keyring::Entry::new(&self.service, &keyring_key)
             .and_then(|entry| entry.get_password())
-            .map_err(|e| {
-                CredStoreError::RetrieveFailed(format!("Failed to retrieve credential: {}", e))
+            .map_err(|e| match e {
+                keyring::error::Error::NoEntry => CredStoreError::NotFound(format!("{:?}", key)),
+                e => {
+                    CredStoreError::RetrieveFailed(format!("Failed to retrieve credential: {}", e))
+                }
             })?;
 
-        let cred = Credential::new(
-            key.org_id().to_string(),
-            key.alias().to_string(),
-            crate::auth::secret::Secret::new(token_str),
-            "Bearer".to_string(),
-        );
-
-        Ok(cred)
+        Self::decode_payload(key, &raw)
     }
 
     fn list(&self) -> CredStoreResult<Vec<Credential>> {
@@ -211,8 +264,9 @@ impl CredentialBackend for OsSecureStore {
 
         keyring::Entry::new(&self.service, &keyring_key)
             .and_then(|entry| entry.delete_credential())
-            .map_err(|e| {
-                CredStoreError::DeleteFailed(format!("Failed to delete credential: {}", e))
+            .map_err(|e| match e {
+                keyring::error::Error::NoEntry => CredStoreError::NotFound(format!("{:?}", key)),
+                e => CredStoreError::DeleteFailed(format!("Failed to delete credential: {}", e)),
             })?;
 
         Ok(())
@@ -239,7 +293,47 @@ mod tests {
     #![allow(clippy::expect_used, clippy::unwrap_used)]
 
     use super::*;
-    use crate::auth::secret::Secret;
+
+    #[test]
+    fn payload_round_trips_refresh_token_expiry_and_identity() {
+        let expiry = UNIX_EPOCH + Duration::from_secs(2_000_000_000);
+        let cred = Credential::new(
+            "00D1".to_string(),
+            "dev".to_string(),
+            Secret::new("access"),
+            "Bearer".to_string(),
+        )
+        .with_identity("u@example.com", "https://x.my.salesforce.com")
+        .with_refresh_token(Some(Secret::new("refresh")))
+        .with_expiry(Some(expiry));
+        let raw = OsSecureStore::encode_payload(&cred).unwrap();
+        let back = OsSecureStore::decode_payload(&cred.key(), &raw).unwrap();
+        assert_eq!(back.token().expose(), "access");
+        assert_eq!(back.refresh_token().unwrap().expose(), "refresh");
+        assert_eq!(back.expires_at(), Some(expiry));
+        assert_eq!(back.username, "u@example.com");
+        assert_eq!(back.instance_url, "https://x.my.salesforce.com");
+    }
+
+    #[test]
+    fn unreadable_payload_is_an_error_not_a_token() {
+        let key = CredentialKey::new("00D1", "dev");
+        assert!(matches!(
+            OsSecureStore::decode_payload(&key, "just-a-raw-token"),
+            Err(CredStoreError::RetrieveFailed(_))
+        ));
+    }
+
+    #[test]
+    fn os_store_key_is_case_insensitive_like_credential_key() {
+        // Store uses the org ID as returned by Salesforce; lookups go through a
+        // lowercased CredentialKey. Both must produce the same keyring account.
+        let stored = OsSecureStore::format_credential_key("00D0E0000000U0MUAU", "Dev-Live");
+        let key = CredentialKey::new("00D0E0000000U0MUAU", "Dev-Live");
+        let looked_up = OsSecureStore::format_credential_key(key.org_id(), key.alias());
+        assert_eq!(stored, looked_up);
+        assert_eq!(stored, "sf-rust:00d0e0000000u0muau:dev-live");
+    }
 
     #[test]
     fn in_memory_store_store_and_retrieve() {

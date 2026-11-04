@@ -24,6 +24,8 @@ pub struct OAuthFlow {
     instance_url: reqwest::Url,
     timeout: Duration,
     client: reqwest::Client,
+    /// Loopback port to listen on; 0 selects an ephemeral port.
+    callback_port: u16,
 }
 
 /// A pending browser-login attempt with a single-use loopback listener.
@@ -61,6 +63,17 @@ pub struct OAuthTokens {
     pub identity_url: Option<String>,
 }
 
+/// Non-secret identity of the user a set of OAuth tokens belongs to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Identity {
+    /// Salesforce organization ID.
+    pub org_id: String,
+    /// Salesforce user ID.
+    pub user_id: String,
+    /// Salesforce username.
+    pub username: String,
+}
+
 impl OAuthFlow {
     /// Create an authorization-code flow for an HTTPS Salesforce login origin.
     pub fn new(
@@ -73,9 +86,20 @@ impl OAuthFlow {
             return Err(AuthError::InvalidOAuthConfiguration);
         }
         let instance_url = secure_base_url(instance_url)?;
-        let client = reqwest::Client::builder()
+        let mut builder = reqwest::Client::builder()
             .timeout(timeout)
-            .redirect(reqwest::redirect::Policy::none())
+            .redirect(reqwest::redirect::Policy::none());
+        // Opt-in enterprise CA bundle; verification stays on.
+        if let Some(pem) = crate::tls::extra_ca_bundle(|name| std::env::var(name).ok())
+            .map_err(|_| AuthError::InvalidOAuthConfiguration)?
+        {
+            for certificate in reqwest::Certificate::from_pem_bundle(&pem)
+                .map_err(|_| AuthError::InvalidOAuthConfiguration)?
+            {
+                builder = builder.add_root_certificate(certificate);
+            }
+        }
+        let client = builder
             .build()
             .map_err(|_| AuthError::InvalidOAuthConfiguration)?;
         Ok(Self {
@@ -83,19 +107,32 @@ impl OAuthFlow {
             instance_url,
             timeout,
             client,
+            callback_port: 0,
         })
     }
 
-    /// Bind an ephemeral listener to IPv4 loopback and create a PKCE challenge.
+    /// Listen on a fixed loopback port instead of an ephemeral one, for apps
+    /// whose registered callback URL includes the port.
+    #[must_use]
+    pub fn with_callback_port(mut self, port: u16) -> Self {
+        self.callback_port = port;
+        self
+    }
+
+    /// Bind a listener to IPv4 loopback (ephemeral port unless one was set)
+    /// and create a PKCE challenge.
     pub async fn begin_login(&self) -> Result<LoginAttempt, AuthError> {
-        let listener = TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0))
-            .await
-            .map_err(|_| AuthError::InvalidOAuthConfiguration)?;
+        let listener = TcpListener::bind(SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            self.callback_port,
+        ))
+        .await
+        .map_err(|_| AuthError::InvalidOAuthConfiguration)?;
         let local_addr = listener
             .local_addr()
             .map_err(|_| AuthError::InvalidOAuthConfiguration)?;
         let callback_url = reqwest::Url::parse(&format!(
-            "http://127.0.0.1:{}{}",
+            "http://localhost:{}{}",
             local_addr.port(),
             CALLBACK_PATH
         ))
@@ -154,6 +191,54 @@ impl OAuthFlow {
             .await
             .map_err(|_| AuthError::OAuthRequestFailed)?;
         parse_token_response(response).await
+    }
+}
+
+impl OAuthFlow {
+    /// Look up the org and user identity for freshly issued tokens.
+    ///
+    /// The identity URL was validated as an HTTPS Salesforce `/id/` URL when the
+    /// token response was parsed. Redirects are never followed.
+    pub async fn fetch_identity(&self, tokens: &OAuthTokens) -> Result<Identity, AuthError> {
+        let url = tokens
+            .identity_url
+            .as_deref()
+            .ok_or(AuthError::OAuthRequestFailed)?;
+        let url = reqwest::Url::parse(url).map_err(|_| AuthError::OAuthRequestFailed)?;
+        self.fetch_identity_from(url, &tokens.access_token).await
+    }
+
+    async fn fetch_identity_from(
+        &self,
+        url: reqwest::Url,
+        access_token: &Secret,
+    ) -> Result<Identity, AuthError> {
+        let response = self
+            .client
+            .get(url)
+            .bearer_auth(access_token.expose())
+            .header(reqwest::header::ACCEPT, "application/json")
+            .send()
+            .await
+            .map_err(|_| AuthError::OAuthRequestFailed)?;
+        if !response.status().is_success() {
+            return Err(AuthError::OAuthRequestFailed);
+        }
+        let body = read_bounded_body(response).await?;
+        let identity: IdentityResponse =
+            serde_json::from_slice(&body).map_err(|_| AuthError::OAuthRequestFailed)?;
+        let valid_id = |value: &str| !value.is_empty() && value.chars().all(char::is_alphanumeric);
+        if !valid_id(&identity.organization_id)
+            || !valid_id(&identity.user_id)
+            || identity.username.trim().is_empty()
+        {
+            return Err(AuthError::OAuthRequestFailed);
+        }
+        Ok(Identity {
+            org_id: identity.organization_id,
+            user_id: identity.user_id,
+            username: identity.username,
+        })
     }
 }
 
@@ -360,18 +445,7 @@ async fn parse_token_response(response: reqwest::Response) -> Result<OAuthTokens
     if !response.status().is_success() {
         return Err(AuthError::OAuthRequestFailed);
     }
-    let mut response = response;
-    let mut body = Vec::new();
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_| AuthError::OAuthRequestFailed)?
-    {
-        if body.len().saturating_add(chunk.len()) > MAX_TOKEN_RESPONSE_BYTES {
-            return Err(AuthError::OAuthRequestFailed);
-        }
-        body.extend_from_slice(&chunk);
-    }
+    let body = read_bounded_body(response).await?;
     let token_response: TokenResponse =
         serde_json::from_slice(&body).map_err(|_| AuthError::OAuthRequestFailed)?;
     if token_response.access_token.is_empty() {
@@ -399,6 +473,28 @@ async fn parse_token_response(response: reqwest::Response) -> Result<OAuthTokens
         instance_url,
         identity_url,
     })
+}
+
+async fn read_bounded_body(mut response: reqwest::Response) -> Result<Vec<u8>, AuthError> {
+    let mut body = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| AuthError::OAuthRequestFailed)?
+    {
+        if body.len().saturating_add(chunk.len()) > MAX_TOKEN_RESPONSE_BYTES {
+            return Err(AuthError::OAuthRequestFailed);
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
+}
+
+#[derive(Deserialize)]
+struct IdentityResponse {
+    organization_id: String,
+    user_id: String,
+    username: String,
 }
 
 #[derive(Deserialize)]
@@ -453,7 +549,7 @@ fn is_salesforce_host(host: &str) -> bool {
 
 fn is_loopback_callback(url: &reqwest::Url) -> bool {
     url.scheme() == "http"
-        && url.host_str() == Some("127.0.0.1")
+        && url.host_str() == Some("localhost")
         && url.port().is_some()
         && url.path() == CALLBACK_PATH
         && url.username().is_empty()
@@ -476,4 +572,63 @@ fn random_url_token() -> Result<String, AuthError> {
         .fill(&mut random)
         .map_err(|_| AuthError::InvalidOAuthConfiguration)?;
     Ok(URL_SAFE_NO_PAD.encode(random))
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
+
+    use super::*;
+    use wiremock::matchers::{header, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn flow() -> OAuthFlow {
+        OAuthFlow::new(
+            "client",
+            "https://login.salesforce.com",
+            Duration::from_secs(5),
+        )
+        .expect("valid flow")
+    }
+
+    async fn identity_for(body: serde_json::Value, status: u16) -> Result<Identity, AuthError> {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/id/00Dabc/005xyz"))
+            .and(header("authorization", "Bearer tok"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(body))
+            .mount(&server)
+            .await;
+        let url = reqwest::Url::parse(&format!("{}/id/00Dabc/005xyz", server.uri())).unwrap();
+        flow().fetch_identity_from(url, &Secret::new("tok")).await
+    }
+
+    #[tokio::test]
+    async fn identity_lookup_returns_org_user_and_username() {
+        let identity = identity_for(
+            serde_json::json!({"organization_id":"00Dabc","user_id":"005xyz","username":"a@example.com"}),
+            200,
+        )
+        .await
+        .expect("identity");
+        assert_eq!(identity.org_id, "00Dabc");
+        assert_eq!(identity.user_id, "005xyz");
+        assert_eq!(identity.username, "a@example.com");
+    }
+
+    #[tokio::test]
+    async fn identity_lookup_rejects_http_errors_and_malformed_bodies() {
+        assert!(identity_for(serde_json::json!({}), 401).await.is_err());
+        assert!(
+            identity_for(serde_json::json!({"nope": 1}), 200)
+                .await
+                .is_err()
+        );
+        let bad_org =
+            serde_json::json!({"organization_id":"../x","user_id":"005xyz","username":"a@b.c"});
+        assert!(identity_for(bad_org, 200).await.is_err());
+        let blank_user =
+            serde_json::json!({"organization_id":"00Dabc","user_id":"005xyz","username":" "});
+        assert!(identity_for(blank_user, 200).await.is_err());
+    }
 }

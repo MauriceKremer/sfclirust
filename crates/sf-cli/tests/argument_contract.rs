@@ -7,54 +7,62 @@
 
 use assert_cmd::Command;
 use predicates::prelude::*;
+use tempfile::TempDir;
 
-#[test]
-fn org_list_basic() {
+fn sf(state: &TempDir) -> Command {
     let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.arg("org");
-    cmd.arg("list");
-
-    cmd.assert()
-        .failure()
-        .code(127)
-        .stderr(predicate::str::contains("not supported"));
+    cmd.env("SF_RUST_STATE_DIR", state.path());
+    cmd.env("SF_RUST_CREDENTIAL_BACKEND", "memory");
+    cmd.env_remove("SF_CONTENT_TYPE");
+    cmd
 }
 
 #[test]
-fn org_list_json_flag() {
-    let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.arg("org");
-    cmd.arg("list");
-    cmd.arg("--json");
-
-    cmd.assert()
-        .failure()
-        .code(127)
-        .stderr(predicate::str::contains("not supported"));
+fn org_list_empty_state_succeeds() {
+    let state = TempDir::new().expect("temp dir");
+    sf(&state).args(["org", "list"]).assert().success();
 }
 
 #[test]
-fn org_list_with_columns() {
-    let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.arg("org");
-    cmd.arg("list");
-    cmd.arg("--columns");
-    cmd.arg("Alias,Username");
+fn org_list_json_has_all_groups() {
+    let state = TempDir::new().expect("temp dir");
+    let output = sf(&state)
+        .args(["org", "list", "--json"])
+        .output()
+        .expect("command runs");
+    assert_eq!(output.status.code(), Some(0));
+    let value: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("single JSON document");
+    assert_eq!(value["status"], 0);
+    assert!(value["warnings"].is_array());
+    let value = value["result"].clone();
+    for group in [
+        "other",
+        "sandboxes",
+        "nonScratchOrgs",
+        "devHubs",
+        "scratchOrgs",
+    ] {
+        assert!(value[group].is_array(), "missing group {group}");
+    }
+}
 
-    cmd.assert()
+#[test]
+fn org_list_rejects_columns_flag_not_in_upstream_contract() {
+    let state = TempDir::new().expect("temp dir");
+    sf(&state)
+        .args(["org", "list", "--columns", "Alias,Username"])
+        .assert()
         .failure()
-        .code(127)
-        .stderr(predicate::str::contains("not supported"));
+        .code(2);
 }
 
 #[test]
 fn org_list_invalid_flag() {
-    let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.arg("org");
-    cmd.arg("list");
-    cmd.arg("--invalid-flag");
-
-    cmd.assert()
+    let state = TempDir::new().expect("temp dir");
+    sf(&state)
+        .args(["org", "list", "--invalid-flag"])
+        .assert()
         .failure()
         .code(2)
         .stderr(predicate::str::contains("unknown").or(predicate::str::contains("unexpected")));
@@ -62,80 +70,37 @@ fn org_list_invalid_flag() {
 
 #[test]
 fn org_subcommand_help() {
-    let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.arg("org");
-    cmd.arg("--help");
-
-    cmd.assert()
+    let state = TempDir::new().expect("temp dir");
+    sf(&state)
+        .args(["org", "--help"])
+        .assert()
         .success()
         .stdout(predicate::str::contains("org").or(predicate::str::contains("Org")));
 }
 
 #[test]
 fn org_list_help() {
-    let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.arg("org");
-    cmd.arg("list");
-    cmd.arg("--help");
-
-    cmd.assert()
+    let state = TempDir::new().expect("temp dir");
+    sf(&state)
+        .args(["org", "list", "--help"])
+        .assert()
         .success()
         .stdout(predicate::str::contains("list").or(predicate::str::contains("List")));
 }
 
 #[test]
 fn unknown_subcommand_under_org() {
-    let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.arg("org");
-    cmd.arg("unknown-subcommand");
-
+    let state = TempDir::new().expect("temp dir");
     // Clap returns exit code 2 for unknown subcommands (parse error)
-    // Custom exit code 127 would require special error handling beyond scope of B10-02
-    cmd.assert().failure().code(2);
-}
-
-#[test]
-fn org_list_json_output_structure() {
-    let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.env("SF_CONTENT_TYPE", "JSON");
-    cmd.arg("org");
-    cmd.arg("list");
-    cmd.arg("--json");
-
-    let output = cmd.output().expect("command runs");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    assert_eq!(output.status.code(), Some(127));
-    let error = serde_json::from_str::<serde_json::Value>(&stdout)
-        .expect("unsupported command returns a JSON error envelope in JSON mode");
-    assert_eq!(error["code"], "UNSUPPORTED_COMMAND");
-}
-
-#[test]
-fn columns_flag_requires_value() {
-    let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.arg("org");
-    cmd.arg("list");
-    cmd.arg("--columns");
-
-    // Missing value for flag should be a parse error
-    cmd.assert()
+    sf(&state)
+        .args(["org", "unknown-subcommand"])
+        .assert()
         .failure()
-        .code(2)
-        .stderr(predicate::str::contains("value").or(predicate::str::contains("missing")));
+        .code(2);
 }
 
 #[test]
-fn json_and_columns_flags_together() {
-    let mut cmd = Command::cargo_bin("sf-rust").expect("binary exists");
-    cmd.arg("org");
-    cmd.arg("list");
-    cmd.arg("--json");
-    cmd.arg("--columns");
-    cmd.arg("Alias,Username");
-
-    cmd.assert()
-        .failure()
-        .code(127)
-        .stderr(predicate::str::contains("not supported"));
+fn org_login_without_a_method_is_a_parse_error() {
+    let state = TempDir::new().expect("temp dir");
+    sf(&state).args(["org", "login"]).assert().failure().code(2);
 }

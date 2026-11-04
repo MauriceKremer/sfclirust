@@ -488,13 +488,35 @@ fn oauth_attempt_uses_loopback_and_pkce_s256() {
         .map(|(key, value)| (key.into_owned(), value.into_owned()))
         .collect();
 
-    assert_eq!(redirect, "127.0.0.1");
+    assert_eq!(redirect, "localhost");
     assert_eq!(
         query.get("code_challenge_method").map(String::as_str),
         Some("S256")
     );
     assert!(query.contains_key("code_challenge"));
     assert!(query.contains_key("state"));
+}
+
+#[test]
+fn oauth_attempt_can_use_a_fixed_callback_port() {
+    let probe = std::net::TcpListener::bind("127.0.0.1:0").expect("probe port");
+    let port = probe.local_addr().expect("probe addr").port();
+    drop(probe);
+    let flow = OAuthFlow::new(
+        "test-client",
+        "https://login.salesforce.com",
+        Duration::from_secs(1),
+    )
+    .expect("valid OAuth flow")
+    .with_callback_port(port);
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("create runtime");
+    let attempt = runtime.block_on(flow.begin_login()).expect("begin login");
+
+    assert_eq!(attempt.callback_url().port(), Some(port));
+    assert_eq!(attempt.callback_url().host_str(), Some("localhost"));
 }
 
 #[derive(Default)]

@@ -4,6 +4,8 @@
 //! taking parsed arguments and returning a CommandOutcome.
 
 pub mod org;
+pub mod org_display;
+pub mod org_login;
 
 use crate::cli::Commands;
 use crate::error::CommandOutcome;

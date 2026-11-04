@@ -17,7 +17,17 @@ reqwest.workspace = true
 base64.workspace = true
 ring.workspace = true
 zip.workspace = true
-keyring = "3.0"
+
+# keyring 3 has no default backend: without a platform feature it silently uses
+# a per-process mock store, so saved logins vanish when the process exits.
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.0", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3.0", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.0", features = ["linux-native"] }
 
 [dev-dependencies]
 tempfile.workspace = true

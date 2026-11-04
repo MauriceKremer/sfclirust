@@ -68,6 +68,14 @@ converter.
 
 **Depends on:** B20-05, B30-01/03/04, and B40-01/02.
 
+**Progress (partial, task remains open):** `crates/sf-api/src/metadata/deploy.rs`
+holds the wire layer: `deploy` and `checkDeployStatus` request builders,
+`DeployId` validation, `DeployStatus` (terminal vs non-terminal, unknown values
+rejected), `DeployResult` with component failures, SOAP fault surfacing. Covered by
+`crates/sf-api/tests/metadata_deploy.rs`. Not started: command inventory, archive
+assembly, HTTP submission to the Metadata SOAP endpoint, polling, resume state,
+CLI command, live test. B20-05 is itself still open.
+
 - [ ] Inventory exact `project deploy start` and necessary report/resume command
   contracts against the pinned baseline before implementation. Target validation
   through the start command's dry-run mode; standalone validate/quick-deploy
